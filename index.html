@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Controle de DTs</title>
+  <style>
+    :root{
+      --bg:#08111f;
+      --panel:#0f172a;
+      --panel-2:#111827;
+      --line:rgba(255,255,255,.10);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --green:#22c55e;
+      --yellow:#f59e0b;
+      --red:#ef4444;
+      --blue:#3b82f6;
+      --shadow:0 18px 40px rgba(0,0,0,.28);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter, Arial, Helvetica, sans-serif;
+      background:linear-gradient(180deg,#07101c 0%, #0b1323 100%);
+      color:var(--text);
+      min-height:100vh;
+    }
+    .wrap{max-width:1380px;margin:0 auto;padding:18px}
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;
+    }
+    .brand{
+      display:inline-flex;align-items:center;gap:10px;padding:10px 14px;border-radius:999px;
+      background:rgba(255,255,255,.04);border:1px solid var(--line);font-weight:800;
+    }
+    .brand-dot{width:10px;height:10px;border-radius:999px;background:var(--green);box-shadow:0 0 12px rgba(34,197,94,.55)}
+    .tabs{display:flex;gap:10px;flex-wrap:wrap}
+    .tab{
+      border:none;cursor:pointer;color:var(--text);background:rgba(255,255,255,.04);border:1px solid var(--line);
+      padding:12px 16px;border-radius:14px;font-weight:800;font-size:14px;
+    }
+    .tab.active{background:linear-gradient(135deg,rgba(34,197,94,.18),rgba(59,130,246,.10));border-color:rgba(34,197,94,.28)}
+    .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}
+    .card{
+      background:rgba(15,23,42,.92);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+    }
+    .stat{padding:16px}
+    .stat .label{font-size:13px;color:var(--muted);margin-bottom:10px}
+    .stat .value{font-size:32px;font-weight:900;line-height:1}
+    .green{color:var(--green)} .yellow{color:var(--yellow)} .red{color:var(--red)} .blue{color:#60a5fa}
+    .screen{display:none}
+    .screen.active{display:block}
+    .layout{display:grid;grid-template-columns:360px 1fr;gap:16px}
+    .panel{padding:16px}
+    .title-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+    .title-row h2{margin:0;font-size:20px}
+    .title-row .hint{font-size:12px;color:var(--muted)}
+    .field{margin-bottom:12px}
+    .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:700}
+    input, select, textarea{
+      width:100%;padding:12px 13px;border-radius:13px;border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.04);color:var(--text);outline:none;font-size:14px;
+    }
+    textarea{min-height:100px;resize:vertical}
+    input:focus, select:focus, textarea:focus{border-color:rgba(59,130,246,.45);box-shadow:0 0 0 3px rgba(59,130,246,.14)}
+    .row-2,.row-3{display:grid;gap:12px}
+    .row-2{grid-template-columns:1fr 1fr}
+    .row-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    button.btn{
+      border:none;cursor:pointer;padding:12px 14px;border-radius:13px;font-weight:800;color:white;
+    }
+    .btn.green{background:#16a34a}.btn.blue{background:#2563eb}.btn.yellow{background:#d97706}.btn.red{background:#dc2626}.btn.gray{background:#334155}
+    .btn.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    .toolbar .mini{padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);font-weight:700;cursor:pointer}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px}
+    table{width:100%;border-collapse:collapse;min-width:980px}
+    th,td{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.08);font-size:14px;text-align:left;vertical-align:top}
+    th{position:sticky;top:0;background:#0b1220;color:#cbd5e1;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+    tr:hover td{background:rgba(255,255,255,.02)}
+    .badge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid transparent}
+    .status-disponivel{background:rgba(34,197,94,.12);color:#86efac;border-color:rgba(34,197,94,.22)}
+    .status-reservada{background:rgba(245,158,11,.12);color:#fcd34d;border-color:rgba(245,158,11,.22)}
+    .status-usada{background:rgba(59,130,246,.12);color:#93c5fd;border-color:rgba(59,130,246,.22)}
+    .status-cancelada{background:rgba(239,68,68,.12);color:#fca5a5;border-color:rgba(239,68,68,.22)}
+    .status-aberto{background:rgba(59,130,246,.12);color:#bfdbfe;border-color:rgba(59,130,246,.22)}
+    .status-concluido{background:rgba(34,197,94,.12);color:#86efac;border-color:rgba(34,197,94,.22)}
+    .status-finalizado{background:rgba(34,197,94,.12);color:#86efac;border-color:rgba(34,197,94,.22)}
+    .row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
+    .row-actions button{border:none;cursor:pointer;padding:8px 10px;border-radius:10px;font-size:12px;font-weight:800;color:white}
+    .row-actions .a1{background:#334155}.row-actions .a2{background:#2563eb}.row-actions .a3{background:#dc2626}.row-actions .a4{background:#16a34a}
+    .section-gap{margin-top:16px}
+    .empty{padding:28px;text-align:center;color:var(--muted)}
+    .sticky{position:sticky;top:10px}
+    .footer-note{margin-top:10px;font-size:12px;color:var(--muted)}
+    details.status-menu{position:relative}
+    details.status-menu summary{
+      list-style:none;
+      cursor:pointer;
+      padding:8px 10px;
+      border-radius:10px;
+      background:#2563eb;
+      color:#fff;
+      font-size:12px;
+      font-weight:800;
+      user-select:none;
+      border:none;
+      min-width:72px;
+      text-align:center;
+    }
+    details.status-menu summary::-webkit-details-marker{display:none}
+    .status-pop{
+      position:absolute;
+      top:40px;
+      right:0;
+      z-index:5;
+      min-width:150px;
+      padding:8px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#0b1220;
+      box-shadow:var(--shadow);
+      display:grid;
+      gap:8px;
+    }
+    .status-pop button{
+      width:100%;
+      border:none;
+      cursor:pointer;
+      padding:9px 10px;
+      border-radius:10px;
+      font-size:12px;
+      font-weight:800;
+      color:#fff;
+    }
+    .status-pop .ok{background:#16a34a}
+    .status-pop .cancel{background:#dc2626}
+    .pill-note{display:inline-flex;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:12px;color:var(--muted)}
+    @media (max-width:1100px){.stats,.layout{grid-template-columns:1fr}.sticky{position:static}}
+    @media (max-width:760px){.wrap{padding:14px}.row-2,.row-3,.actions{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.tab{flex:1}.toolbar .mini,.actions .btn{width:100%}}
+    @media (max-width:520px){.stats{grid-template-columns:1fr}.brand{width:100%;justify-content:center}.tabs{width:100%}.tab{width:100%}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand"><span class="brand-dot"></span><span>Controle de DTs</span></div>
+      <div class="tabs">
+        <button class="tab active" data-tab="cadastro">Cadastro</button>
+        <button class="tab" data-tab="registro">Registro</button>
+      </div>
+    </div>
+
+    <section class="stats" id="stats"></section>
+
+    <section class="screen active" id="screen-cadastro">
+      <div class="layout">
+        <aside class="sticky">
+          <div class="card panel">
+            <div class="title-row"><h2>Cadastrar DTs</h2><span class="hint">rápido</span></div>
+            <div class="field">
+              <label for="singleDt">Uma DT</label>
+              <input id="singleDt" type="text" placeholder="Ex.: 123456789" />
+            </div>
+            <div class="field">
+              <label for="singleSku">SKU</label>
+              <input id="singleSku" type="text" placeholder="Ex.: SKU 123 / Produto X" />
+            </div>
+            <div class="actions">
+              <button class="btn green" id="addSingleDtBtn">Adicionar</button>
+              <button class="btn ghost" id="clearSingleDtBtn">Limpar</button>
+            </div>
+
+            <div class="section-gap"></div>
+            <div class="field">
+              <label for="bulkDts">Em lote</label>
+              <textarea id="bulkDts" placeholder="Cole uma DT por linha, vírgula ou espaço"></textarea>
+            </div>
+            <div class="field">
+              <label for="bulkSku">SKU do lote</label>
+              <input id="bulkSku" type="text" placeholder="Mesmo SKU para todas as DTs do lote" />
+            </div>
+            <div class="actions">
+              <button class="btn blue" id="addBulkDtBtn">Adicionar lote</button>
+              <button class="btn ghost" id="clearBulkBtn">Limpar</button>
+            </div>
+
+            <div class="section-gap"></div>
+            <div class="actions">
+              <button class="btn ghost" id="exportDtCsvBtn">DTs CSV</button>
+              <button class="btn ghost" id="backupJsonBtn">Backup JSON</button>
+              <button class="btn ghost" id="restoreJsonBtn">Restaurar JSON</button>
+              <button class="btn ghost" id="exportHistoryCsvBtn">Histórico CSV</button>
+              <input id="restoreJsonInput" type="file" accept="application/json" hidden />
+            </div>
+            <div class="footer-note">Cadastre e organize a fila.</div>
+          </div>
+        </aside>
+
+        <main>
+          <div class="card panel">
+            <div class="title-row"><h2>Fila</h2><span class="hint">controle</span></div>
+            <div class="row-3">
+              <div class="field">
+                <label for="searchDt">Buscar</label>
+                <input id="searchDt" type="text" placeholder="DT ou SKU" />
+              </div>
+              <div class="field">
+                <label for="statusFilter">Status</label>
+                <select id="statusFilter">
+                  <option value="todos">Todos</option>
+                  <option value="disponivel">Disponível</option>
+                  <option value="reservada">Reservada</option>
+                  <option value="usada">Registrada</option>
+                  <option value="cancelada">Cancelada</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="sortMode">Ordem</label>
+                <select id="sortMode">
+                  <option value="recentes">Mais recentes</option>
+                  <option value="antigas">Mais antigas</option>
+                  <option value="dt_asc">DT crescente</option>
+                  <option value="dt_desc">DT decrescente</option>
+                </select>
+              </div>
+            </div>
+            <div class="toolbar">
+              <button class="mini" id="clearUsedBtn">Excluir registradas</button>
+              <button class="mini" id="clearCancelledBtn">Excluir canceladas</button>
+              <button class="mini" id="clearAllBtn">Limpar tudo</button>
+            </div>
+            <div class="table-wrap" id="dtTableWrap"></div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-registro">
+      <div class="layout">
+        <aside class="sticky">
+          <div class="card panel">
+            <div class="title-row"><h2>Registrar</h2><span class="hint">baldeio</span></div>
+
+            <div class="field">
+              <label for="dtMode">Usar DT</label>
+              <select id="dtMode">
+                <option value="auto">Próxima disponível</option>
+                <option value="manual">Escolher específica</option>
+              </select>
+            </div>
+            <div class="field" id="manualDtField" style="display:none">
+              <label for="manualDtSelect">DT específica</label>
+              <select id="manualDtSelect"></select>
+            </div>
+
+            <div class="row-2">
+              <div class="field">
+                <label for="motorista">Motorista</label>
+                <input id="motorista" type="text" placeholder="Nome" />
+              </div>
+              <div class="field">
+                <label for="transportadora">Transportadora</label>
+                <input id="transportadora" type="text" placeholder="Transportadora" />
+              </div>
+            </div>
+
+            <div class="row-2">
+              <div class="field">
+                <label for="placaCavalo">Placa cavalo</label>
+                <input id="placaCavalo" type="text" placeholder="ABC1D23" maxlength="8" />
+              </div>
+              <div class="field">
+                <label for="placaCarreta">Placa carreta</label>
+                <input id="placaCarreta" type="text" placeholder="ABC1D23" maxlength="8" />
+              </div>
+            </div>
+
+            <div class="row-2">
+              <div class="field">
+                <label for="origem">Origem</label>
+                <input id="origem" type="text" placeholder="Fábrica" />
+              </div>
+              <div class="field">
+                <label for="destino">Destino</label>
+                <input id="destino" type="text" placeholder="Armazém externo" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="observacao">Observação</label>
+              <textarea id="observacao" placeholder="Informações adicionais"></textarea>
+            </div>
+
+            <div class="actions">
+              <button class="btn green" id="registerBaldeioBtn">Registrar</button>
+              <button class="btn yellow" id="reserveNextBtn">Reservar</button>
+            </div>
+          </div>
+        </aside>
+
+        <main>
+          <div class="card panel">
+            <div class="title-row"><h2>Histórico</h2><span class="hint">operações</span></div>
+            <div class="row-3">
+              <div class="field">
+                <label for="historySearch">Buscar</label>
+                <input id="historySearch" type="text" placeholder="DT, motorista, placa ou transportadora" />
+              </div>
+              <div class="field">
+                <label for="historyFlowFilter">Situação</label>
+                <select id="historyFlowFilter">
+                  <option value="todos">Todos</option>
+                  <option value="aberto">Em aberto</option>
+                  <option value="concluido">Concluído</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="historySort">Ordem</label>
+                <select id="historySort">
+                  <option value="recentes">Mais recentes</option>
+                  <option value="antigas">Mais antigas</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap" id="historyTableWrap"></div>
+          </div>
+        </main>
+      </div>
+    </section>
+  </div>
+
+<script>
+const STORAGE_KEY = 'controle_dts_baldeio_intuitivo_v1';
+const initialState = { dts: [], history: [] };
+let state = loadState();
+
+const el = (id) => document.getElementById(id);
+const qsa = (sel) => [...document.querySelectorAll(sel)];
+
+function uid(prefix='id'){
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return structuredClone(initialState);
+    const parsed = JSON.parse(raw);
+    parsed.dts ??= [];
+    parsed.history ??= [];
+    parsed.dts = parsed.dts.map(item => ({ ...item, sku: item.sku || '' }));
+    parsed.history = parsed.history.map(item => ({
+      ...item,
+      sku: item.sku || '',
+      id: item.id || uid('hist'),
+      flowStatus: item.flowStatus || inferFlowStatus(item)
+    }));
+    return parsed;
+  }catch(e){
+    return structuredClone(initialState);
+  }
+}
+function inferFlowStatus(item){
+  if(item.flowStatus) return item.flowStatus;
+  return 'aberto';
+}
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function nowIso(){ return new Date().toISOString(); }
+function fmtDate(v){ if(!v) return '-'; return new Date(v).toLocaleString('pt-BR'); }
+function normalizeDt(v){ return String(v || '').replace(/\D/g,''); }
+function normalizePlate(v){ return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,7); }
+function downloadFile(name, content, type='text/plain;charset=utf-8'){
+  const blob = new Blob([content], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function csvEscape(v){
+  const s = String(v ?? '');
+  if(/[";,\n]/.test(s)) return '"' + s.replaceAll('"','""') + '"';
+  return s;
+}
+function getStats(){
+  return {
+    total: state.dts.length,
+    disponivel: state.dts.filter(d=>d.status==='disponivel').length,
+    reservada: state.dts.filter(d=>d.status==='reservada').length,
+    concluidasHoje: state.history.filter(h => h.flowStatus==='concluido' && new Date(h.updatedAt || h.createdAt).toDateString() === new Date().toDateString()).length,
+  };
+}
+function renderStats(){
+  const s = getStats();
+  el('stats').innerHTML = `
+    <div class="card stat"><div class="label">Total</div><div class="value">${s.total}</div></div>
+    <div class="card stat"><div class="label">Disponíveis</div><div class="value green">${s.disponivel}</div></div>
+    <div class="card stat"><div class="label">Reservadas</div><div class="value yellow">${s.reservada}</div></div>
+    <div class="card stat"><div class="label">Concluídas hoje</div><div class="value blue">${s.concluidasHoje}</div></div>`;
+}
+function addDt(value, sku=''){
+  const dt = normalizeDt(value);
+  const skuValue = String(sku || '').trim();
+  if(!dt) return {ok:false,msg:'Digite uma DT válida.'};
+  if(state.dts.some(d=>d.dt===dt)) return {ok:false,msg:`DT ${dt} já cadastrada.`};
+  state.dts.unshift({ dt, sku: skuValue, status:'disponivel', createdAt: nowIso(), updatedAt: nowIso() });
+  saveState();
+  return {ok:true,msg:`DT ${dt} adicionada.`};
+}
+function addBulk(text, sku=''){
+  const skuValue = String(sku || '').trim();
+  const parts = String(text || '').split(/[\s,;\n\r\t]+/).map(normalizeDt).filter(Boolean);
+  let added = 0, ignored = 0;
+  for(const dt of parts){
+    if(state.dts.some(d=>d.dt===dt)){ ignored++; continue; }
+    state.dts.unshift({ dt, sku: skuValue, status:'disponivel', createdAt: nowIso(), updatedAt: nowIso() });
+    added++;
+  }
+  saveState();
+  return {added, ignored};
+}
+function getAvailableDts(){ return state.dts.filter(d=>d.status==='disponivel'); }
+function updateDtStatus(dt, status){
+  const item = state.dts.find(d=>d.dt===dt);
+  if(!item) return;
+  item.status = status;
+  item.updatedAt = nowIso();
+  saveState();
+}
+function ensureDtAvailable(dt, sku=''){
+  const dtNorm = normalizeDt(dt);
+  if(!dtNorm) return;
+  const existing = state.dts.find(d => d.dt === dtNorm);
+  if(existing){
+    existing.status = 'disponivel';
+    if(sku && !existing.sku) existing.sku = sku;
+    existing.updatedAt = nowIso();
+  }else{
+    state.dts.unshift({ dt: dtNorm, sku: String(sku || '').trim(), status: 'disponivel', createdAt: nowIso(), updatedAt: nowIso() });
+  }
+  saveState();
+}
+function removeDt(dt){
+  state.dts = state.dts.filter(d=>d.dt!==dt);
+  saveState();
+}
+function nextAvailableDt(){ return getAvailableDts().sort((a,b)=> new Date(a.createdAt)-new Date(b.createdAt))[0] || null; }
+function manualDtOptions(){
+  const opts = getAvailableDts().sort((a,b)=> a.dt.localeCompare(b.dt));
+  el('manualDtSelect').innerHTML = opts.length ? opts.map(d=>`<option value="${d.dt}">${d.dt}${d.sku ? ' • ' + d.sku : ''}</option>`).join('') : '<option value="">Sem DT disponível</option>';
+}
+function renderDtTable(){
+  const searchRaw = String(el('searchDt').value || '').trim().toLowerCase();
+  const searchDt = normalizeDt(searchRaw);
+  const status = el('statusFilter').value;
+  const sortMode = el('sortMode').value;
+  let rows = [...state.dts];
+  if(searchRaw){
+    rows = rows.filter(r =>
+      (searchDt && r.dt.includes(searchDt)) ||
+      String(r.sku || '').toLowerCase().includes(searchRaw)
+    );
+  }
+  if(status !== 'todos') rows = rows.filter(r=>r.status===status);
+  rows.sort((a,b)=>{
+    if(sortMode==='recentes') return new Date(b.createdAt)-new Date(a.createdAt);
+    if(sortMode==='antigas') return new Date(a.createdAt)-new Date(b.createdAt);
+    if(sortMode==='dt_asc') return a.dt.localeCompare(b.dt);
+    return b.dt.localeCompare(a.dt);
+  });
+  if(!rows.length){
+    el('dtTableWrap').innerHTML = '<div class="empty">Nenhuma DT encontrada.</div>';
+    return;
+  }
+  el('dtTableWrap').innerHTML = `
+    <table>
+      <thead>
+        <tr><th>DT</th><th>SKU</th><th>Status</th><th>Criada</th><th>Atualizada</th><th>Ações</th></tr>
+      </thead>
+      <tbody>
+        ${rows.map(r=>`
+          <tr>
+            <td><strong>${r.dt}</strong></td>
+            <td>${r.sku || '-'}</td>
+            <td><span class="badge status-${r.status}">${labelDtStatus(r.status)}</span></td>
+            <td>${fmtDate(r.createdAt)}</td>
+            <td>${fmtDate(r.updatedAt)}</td>
+            <td>
+              <div class="row-actions">
+                ${r.status!=='disponivel' ? `<button class="a4" onclick="setStatus('${r.dt}','disponivel')">Disponível</button>` : ''}
+                ${r.status!=='reservada' ? `<button class="a2" onclick="setStatus('${r.dt}','reservada')">Reservar</button>` : ''}
+                ${r.status!=='cancelada' ? `<button class="a1" onclick="setStatus('${r.dt}','cancelada')">Cancelar</button>` : ''}
+                <button class="a3" onclick="deleteDt('${r.dt}')">Excluir</button>
+              </div>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+function labelDtStatus(status){
+  const map = {
+    disponivel: 'Disponível',
+    reservada: 'Reservada',
+    usada: 'Registrada',
+    cancelada: 'Cancelada'
+  };
+  return map[status] || status;
+}
+function labelType(type){
+  return type === 'registrado' ? 'Registrado' : 'Reservado';
+}
+function labelFlowStatus(status){
+  const map = { aberto: 'Em aberto', concluido: 'Concluído', cancelado: 'Cancelado' };
+  return map[status] || status;
+}
+function renderHistory(){
+  const search = String(el('historySearch').value || '').toLowerCase().trim();
+  const flowFilter = el('historyFlowFilter').value;
+  const sort = el('historySort').value;
+  let rows = [...state.history];
+  if(search){
+    rows = rows.filter(r => [
+      r.dt,r.sku,r.motorista,r.transportadora,r.placaCavalo,r.placaCarreta,r.origem,r.destino,r.observacao,labelType(r.type),labelFlowStatus(r.flowStatus)
+    ].join(' ').toLowerCase().includes(search));
+  }
+  if(flowFilter !== 'todos') rows = rows.filter(r => r.flowStatus===flowFilter);
+  rows.sort((a,b)=> sort==='recentes' ? new Date(b.createdAt)-new Date(a.createdAt) : new Date(a.createdAt)-new Date(b.createdAt));
+  if(!rows.length){
+    el('historyTableWrap').innerHTML = '<div class="empty">Nenhum registro ainda.</div>';
+    return;
+  }
+  el('historyTableWrap').innerHTML = `
+    <table>
+      <thead>
+        <tr><th>Tipo</th><th>Status</th><th>DT</th><th>SKU</th><th>Motorista</th><th>Transportadora</th><th>Placas</th><th>Origem / Destino</th><th>Observação</th><th>Data</th><th>Ações</th></tr>
+      </thead>
+      <tbody>
+        ${rows.map(r=>`
+          <tr>
+            <td><span class="badge status-${r.type==='registrado' ? 'usada' : 'reservada'}">${labelType(r.type)}</span></td>
+            <td><span class="badge status-${r.flowStatus}">${labelFlowStatus(r.flowStatus)}</span></td>
+            <td><strong>${r.dt}</strong></td>
+            <td>${r.sku || '-'}</td>
+            <td>${r.motorista || '-'}</td>
+            <td>${r.transportadora || '-'}</td>
+            <td>${[r.placaCavalo || '-', r.placaCarreta || '-'].join(' / ')}</td>
+            <td>${[r.origem || '-', r.destino || '-'].join(' → ')}</td>
+            <td>${r.observacao || '-'}</td>
+            <td>${fmtDate(r.createdAt)}</td>
+            <td>
+              <div class="row-actions">
+                ${r.flowStatus === 'aberto' ? `
+                  <details class="status-menu">
+                    <summary>Status</summary>
+                    <div class="status-pop">
+                      <button class="ok" onclick="setHistoryFlowStatus('${r.id}','concluido')">Concluído</button>
+                      <button class="cancel" onclick="setHistoryFlowStatus('${r.id}','cancelado')">Cancelado</button>
+                    </div>
+                  </details>` : `<span class="pill-note">${labelFlowStatus(r.flowStatus)}</span>`}
+              </div>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+function toast(msg){ alert(msg); }
+function clearRegisterFields(){
+  ['motorista','transportadora','placaCavalo','placaCarreta','origem','destino','observacao'].forEach(id=>el(id).value='');
+}
+function register(type='registrado'){
+  let dt;
+  if(el('dtMode').value === 'manual'){
+    dt = el('manualDtSelect').value;
+    if(!dt) return toast('Selecione uma DT disponível.');
+  } else {
+    dt = nextAvailableDt()?.dt;
+    if(!dt) return toast('Não há DT disponível.');
+  }
+
+  const item = state.dts.find(d=>d.dt===dt && d.status==='disponivel');
+  if(!item) return toast('Essa DT não está disponível.');
+
+  const payload = {
+    id: uid('hist'),
+    dt,
+    sku: item.sku || '',
+    type,
+    flowStatus: 'aberto',
+    motorista: el('motorista').value.trim(),
+    transportadora: el('transportadora').value.trim(),
+    placaCavalo: normalizePlate(el('placaCavalo').value),
+    placaCarreta: normalizePlate(el('placaCarreta').value),
+    origem: el('origem').value.trim(),
+    destino: el('destino').value.trim(),
+    observacao: el('observacao').value.trim(),
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+
+  state.history.unshift(payload);
+  item.status = type === 'registrado' ? 'usada' : 'reservada';
+  item.updatedAt = nowIso();
+  saveState();
+  clearRegisterFields();
+  renderAll();
+  toast(`DT ${dt} ${type === 'registrado' ? 'registrada' : 'reservada'} com sucesso.`);
+}
+function setHistoryStatus(id, newStatus){
+  const record = state.history.find(r => r.id === id);
+  if(!record) return toast('Registro não encontrado.');
+  if(record.flowStatus !== 'aberto') return toast('Esse registro já foi finalizado.');
+  if(newStatus === 'concluido'){
+    record.flowStatus = 'concluido';
+    record.updatedAt = nowIso();
+    removeDt(record.dt);
+    saveState();
+    renderAll();
+    toast(`DT ${record.dt} concluída.`);
+    return;
+  }
+  if(newStatus === 'cancelado'){
+    record.flowStatus = 'cancelado';
+    record.updatedAt = nowIso();
+    ensureDtAvailable(record.dt, record.sku || '');
+    saveState();
+    renderAll();
+    toast(`DT ${record.dt} cancelada e devolvida ao cadastro.`);
+  }
+}
+function exportDtsCsv(){
+  const lines = [['DT','SKU','Status','Criada','Atualizada'], ...state.dts.map(r=>[r.dt,r.sku || '',labelDtStatus(r.status),fmtDate(r.createdAt),fmtDate(r.updatedAt)])];
+  downloadFile('dts.csv', lines.map(l=>l.map(csvEscape).join(';')).join('\n'), 'text/csv;charset=utf-8');
+}
+function exportHistoryCsv(){
+  const lines = [[
+    'Tipo','Status','DT','SKU','Motorista','Transportadora','Placa Cavalo','Placa Carreta','Origem','Destino','Observação','Criado em','Atualizado em'
+  ], ...state.history.map(r=>[
+    labelType(r.type),labelFlowStatus(r.flowStatus),r.dt,r.sku || '',r.motorista,r.transportadora,r.placaCavalo,r.placaCarreta,r.origem,r.destino,r.observacao,fmtDate(r.createdAt),fmtDate(r.updatedAt)
+  ])];
+  downloadFile('historico_dts.csv', lines.map(l=>l.map(csvEscape).join(';')).join('\n'), 'text/csv;charset=utf-8');
+}
+function backupJson(){ downloadFile('backup_controle_dts.json', JSON.stringify(state, null, 2), 'application/json;charset=utf-8'); }
+function restoreJson(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const parsed = JSON.parse(reader.result);
+      if(!Array.isArray(parsed.dts) || !Array.isArray(parsed.history)) throw new Error('Formato inválido');
+      parsed.history = parsed.history.map(item => ({
+        ...item,
+        id: item.id || uid('hist'),
+        flowStatus: item.flowStatus || inferFlowStatus(item)
+      }));
+      state = parsed;
+      saveState();
+      renderAll();
+      toast('Backup restaurado.');
+    }catch(e){
+      toast('Arquivo inválido.');
+    }
+  };
+  reader.readAsText(file);
+}
+function renderAll(){
+  renderStats();
+  renderDtTable();
+  renderHistory();
+  manualDtOptions();
+}
+function switchTab(tab){
+  qsa('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
+  el('screen-cadastro').classList.toggle('active', tab==='cadastro');
+  el('screen-registro').classList.toggle('active', tab==='registro');
+}
+window.setStatus = (dt,status) => {
+  updateDtStatus(dt,status);
+  renderAll();
+};
+window.deleteDt = (dt) => {
+  if(confirm(`Excluir DT ${dt}?`)){
+    removeDt(dt);
+    renderAll();
+  }
+};
+window.setHistoryFlowStatus = (id,status) => setHistoryStatus(id,status);
+
+qsa('.tab').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+el('addSingleDtBtn').addEventListener('click', ()=>{
+  const res = addDt(el('singleDt').value, el('singleSku').value);
+  if(!res.ok) return toast(res.msg);
+  el('singleDt').value='';
+  el('singleSku').value='';
+  renderAll();
+});
+el('clearSingleDtBtn').addEventListener('click', ()=>{
+  el('singleDt').value='';
+  el('singleSku').value='';
+});
+el('addBulkDtBtn').addEventListener('click', ()=>{
+  const {added, ignored} = addBulk(el('bulkDts').value, el('bulkSku').value);
+  el('bulkDts').value='';
+  el('bulkSku').value='';
+  renderAll();
+  toast(`${added} DT(s) adicionada(s). ${ignored} ignorada(s).`);
+});
+el('clearBulkBtn').addEventListener('click', ()=>{
+  el('bulkDts').value='';
+  el('bulkSku').value='';
+});
+el('dtMode').addEventListener('change', ()=>{
+  el('manualDtField').style.display = el('dtMode').value==='manual' ? 'block' : 'none';
+  manualDtOptions();
+});
+el('registerBaldeioBtn').addEventListener('click', ()=> register('registrado'));
+el('reserveNextBtn').addEventListener('click', ()=> register('reservado'));
+['searchDt','statusFilter','sortMode','historySearch','historyFlowFilter','historySort'].forEach(id => el(id).addEventListener('input', renderAll));
+el('exportDtCsvBtn').addEventListener('click', exportDtsCsv);
+el('exportHistoryCsvBtn').addEventListener('click', exportHistoryCsv);
+el('backupJsonBtn').addEventListener('click', backupJson);
+el('restoreJsonBtn').addEventListener('click', ()=> el('restoreJsonInput').click());
+el('restoreJsonInput').addEventListener('change', (e)=>{
+  const file = e.target.files?.[0];
+  if(file) restoreJson(file);
+  e.target.value='';
+});
+el('clearUsedBtn').addEventListener('click', ()=>{
+  if(confirm('Excluir todas as DTs registradas?')){
+    state.dts = state.dts.filter(d=>d.status!=='usada');
+    saveState();
+    renderAll();
+  }
+});
+el('clearCancelledBtn').addEventListener('click', ()=>{
+  if(confirm('Excluir todas as DTs canceladas?')){
+    state.dts = state.dts.filter(d=>d.status!=='cancelada');
+    saveState();
+    renderAll();
+  }
+});
+el('clearAllBtn').addEventListener('click', ()=>{
+  if(confirm('Limpar todas as DTs e o histórico?')){
+    state = structuredClone(initialState);
+    saveState();
+    renderAll();
+  }
+});
+['placaCavalo','placaCarreta'].forEach(id => el(id).addEventListener('input', e => e.target.value = normalizePlate(e.target.value)));
+
+renderAll();
+</script>
+</body>
+</html>
