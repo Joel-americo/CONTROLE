@@ -139,6 +139,11 @@
     .status-pop .ok{background:#16a34a}
     .status-pop .cancel{background:#dc2626}
     .pill-note{display:inline-flex;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:12px;color:var(--muted)}
+    .sync-badge{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04);font-size:12px;font-weight:800;color:#cbd5e1}
+    .sync-dot{width:9px;height:9px;border-radius:999px;background:#64748b}
+    .sync-badge.ok .sync-dot{background:var(--green);box-shadow:0 0 10px rgba(34,197,94,.45)}
+    .sync-badge.warn .sync-dot{background:var(--yellow);box-shadow:0 0 10px rgba(245,158,11,.45)}
+    .sync-badge.err .sync-dot{background:var(--red);box-shadow:0 0 10px rgba(239,68,68,.45)}
     @media (max-width:1100px){.stats,.layout{grid-template-columns:1fr}.sticky{position:static}}
     @media (max-width:760px){.wrap{padding:14px}.row-2,.row-3,.actions{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.tab{flex:1}.toolbar .mini,.actions .btn{width:100%}}
     @media (max-width:520px){.stats{grid-template-columns:1fr}.brand{width:100%;justify-content:center}.tabs{width:100%}.tab{width:100%}}
@@ -148,9 +153,12 @@
   <div class="wrap">
     <div class="topbar">
       <div class="brand"><span class="brand-dot"></span><span>Controle de DTs</span></div>
-      <div class="tabs">
-        <button class="tab active" data-tab="cadastro">Cadastro</button>
-        <button class="tab" data-tab="registro">Registro</button>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="sync-badge warn" id="syncBadge"><span class="sync-dot"></span><span id="syncText">Conectando</span></div>
+        <div class="tabs">
+          <button class="tab active" data-tab="cadastro">Cadastro</button>
+          <button class="tab" data-tab="registro">Registro</button>
+        </div>
       </div>
     </div>
 
@@ -196,7 +204,7 @@
               <button class="btn ghost" id="exportHistoryCsvBtn">Histórico CSV</button>
               <input id="restoreJsonInput" type="file" accept="application/json" hidden />
             </div>
-            <div class="footer-note">Cadastre e organize a fila.</div>
+            <div class="footer-note">Base compartilhada no Firebase.</div>
           </div>
         </aside>
 
@@ -251,6 +259,19 @@
                 <option value="auto">Próxima disponível</option>
                 <option value="manual">Escolher específica</option>
               </select>
+            </div>
+            <div class="row-2" id="manualFilterWrap" style="display:none">
+              <div class="field">
+                <label for="manualSelectMode">Escolher específica</label>
+                <select id="manualSelectMode">
+                  <option value="all">Todas disponíveis</option>
+                  <option value="sku">Por SKU</option>
+                </select>
+              </div>
+              <div class="field" id="manualSkuField" style="display:none">
+                <label for="manualSkuSelect">SKU</label>
+                <select id="manualSkuSelect"></select>
+              </div>
             </div>
             <div class="field" id="manualDtField" style="display:none">
               <label for="manualDtSelect">DT específica</label>
@@ -334,423 +355,747 @@
     </section>
   </div>
 
-<script>
-const STORAGE_KEY = 'controle_dts_baldeio_intuitivo_v1';
-const initialState = { dts: [], history: [] };
-let state = loadState();
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import {
+    getFirestore,
+    collection,
+    doc,
+    setDoc,
+    updateDoc,
+    deleteDoc,
+    getDoc,
+    onSnapshot,
+    writeBatch,
+    runTransaction
+  } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-const el = (id) => document.getElementById(id);
-const qsa = (sel) => [...document.querySelectorAll(sel)];
-
-function uid(prefix='id'){
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-}
-function loadState(){
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return structuredClone(initialState);
-    const parsed = JSON.parse(raw);
-    parsed.dts ??= [];
-    parsed.history ??= [];
-    parsed.dts = parsed.dts.map(item => ({ ...item, sku: item.sku || '' }));
-    parsed.history = parsed.history.map(item => ({
-      ...item,
-      sku: item.sku || '',
-      id: item.id || uid('hist'),
-      flowStatus: item.flowStatus || inferFlowStatus(item)
-    }));
-    return parsed;
-  }catch(e){
-    return structuredClone(initialState);
-  }
-}
-function inferFlowStatus(item){
-  if(item.flowStatus) return item.flowStatus;
-  return 'aberto';
-}
-function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-function nowIso(){ return new Date().toISOString(); }
-function fmtDate(v){ if(!v) return '-'; return new Date(v).toLocaleString('pt-BR'); }
-function normalizeDt(v){ return String(v || '').replace(/\D/g,''); }
-function normalizePlate(v){ return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,7); }
-function downloadFile(name, content, type='text/plain;charset=utf-8'){
-  const blob = new Blob([content], { type });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-function csvEscape(v){
-  const s = String(v ?? '');
-  if(/[";,\n]/.test(s)) return '"' + s.replaceAll('"','""') + '"';
-  return s;
-}
-function getStats(){
-  return {
-    total: state.dts.length,
-    disponivel: state.dts.filter(d=>d.status==='disponivel').length,
-    reservada: state.dts.filter(d=>d.status==='reservada').length,
-    concluidasHoje: state.history.filter(h => h.flowStatus==='concluido' && new Date(h.updatedAt || h.createdAt).toDateString() === new Date().toDateString()).length,
-  };
-}
-function renderStats(){
-  const s = getStats();
-  el('stats').innerHTML = `
-    <div class="card stat"><div class="label">Total</div><div class="value">${s.total}</div></div>
-    <div class="card stat"><div class="label">Disponíveis</div><div class="value green">${s.disponivel}</div></div>
-    <div class="card stat"><div class="label">Reservadas</div><div class="value yellow">${s.reservada}</div></div>
-    <div class="card stat"><div class="label">Concluídas hoje</div><div class="value blue">${s.concluidasHoje}</div></div>`;
-}
-function addDt(value, sku=''){
-  const dt = normalizeDt(value);
-  const skuValue = String(sku || '').trim();
-  if(!dt) return {ok:false,msg:'Digite uma DT válida.'};
-  if(state.dts.some(d=>d.dt===dt)) return {ok:false,msg:`DT ${dt} já cadastrada.`};
-  state.dts.unshift({ dt, sku: skuValue, status:'disponivel', createdAt: nowIso(), updatedAt: nowIso() });
-  saveState();
-  return {ok:true,msg:`DT ${dt} adicionada.`};
-}
-function addBulk(text, sku=''){
-  const skuValue = String(sku || '').trim();
-  const parts = String(text || '').split(/[\s,;\n\r\t]+/).map(normalizeDt).filter(Boolean);
-  let added = 0, ignored = 0;
-  for(const dt of parts){
-    if(state.dts.some(d=>d.dt===dt)){ ignored++; continue; }
-    state.dts.unshift({ dt, sku: skuValue, status:'disponivel', createdAt: nowIso(), updatedAt: nowIso() });
-    added++;
-  }
-  saveState();
-  return {added, ignored};
-}
-function getAvailableDts(){ return state.dts.filter(d=>d.status==='disponivel'); }
-function updateDtStatus(dt, status){
-  const item = state.dts.find(d=>d.dt===dt);
-  if(!item) return;
-  item.status = status;
-  item.updatedAt = nowIso();
-  saveState();
-}
-function ensureDtAvailable(dt, sku=''){
-  const dtNorm = normalizeDt(dt);
-  if(!dtNorm) return;
-  const existing = state.dts.find(d => d.dt === dtNorm);
-  if(existing){
-    existing.status = 'disponivel';
-    if(sku && !existing.sku) existing.sku = sku;
-    existing.updatedAt = nowIso();
-  }else{
-    state.dts.unshift({ dt: dtNorm, sku: String(sku || '').trim(), status: 'disponivel', createdAt: nowIso(), updatedAt: nowIso() });
-  }
-  saveState();
-}
-function removeDt(dt){
-  state.dts = state.dts.filter(d=>d.dt!==dt);
-  saveState();
-}
-function nextAvailableDt(){ return getAvailableDts().sort((a,b)=> new Date(a.createdAt)-new Date(b.createdAt))[0] || null; }
-function manualDtOptions(){
-  const opts = getAvailableDts().sort((a,b)=> a.dt.localeCompare(b.dt));
-  el('manualDtSelect').innerHTML = opts.length ? opts.map(d=>`<option value="${d.dt}">${d.dt}${d.sku ? ' • ' + d.sku : ''}</option>`).join('') : '<option value="">Sem DT disponível</option>';
-}
-function renderDtTable(){
-  const searchRaw = String(el('searchDt').value || '').trim().toLowerCase();
-  const searchDt = normalizeDt(searchRaw);
-  const status = el('statusFilter').value;
-  const sortMode = el('sortMode').value;
-  let rows = [...state.dts];
-  if(searchRaw){
-    rows = rows.filter(r =>
-      (searchDt && r.dt.includes(searchDt)) ||
-      String(r.sku || '').toLowerCase().includes(searchRaw)
-    );
-  }
-  if(status !== 'todos') rows = rows.filter(r=>r.status===status);
-  rows.sort((a,b)=>{
-    if(sortMode==='recentes') return new Date(b.createdAt)-new Date(a.createdAt);
-    if(sortMode==='antigas') return new Date(a.createdAt)-new Date(b.createdAt);
-    if(sortMode==='dt_asc') return a.dt.localeCompare(b.dt);
-    return b.dt.localeCompare(a.dt);
-  });
-  if(!rows.length){
-    el('dtTableWrap').innerHTML = '<div class="empty">Nenhuma DT encontrada.</div>';
-    return;
-  }
-  el('dtTableWrap').innerHTML = `
-    <table>
-      <thead>
-        <tr><th>DT</th><th>SKU</th><th>Status</th><th>Criada</th><th>Atualizada</th><th>Ações</th></tr>
-      </thead>
-      <tbody>
-        ${rows.map(r=>`
-          <tr>
-            <td><strong>${r.dt}</strong></td>
-            <td>${r.sku || '-'}</td>
-            <td><span class="badge status-${r.status}">${labelDtStatus(r.status)}</span></td>
-            <td>${fmtDate(r.createdAt)}</td>
-            <td>${fmtDate(r.updatedAt)}</td>
-            <td>
-              <div class="row-actions">
-                ${r.status!=='disponivel' ? `<button class="a4" onclick="setStatus('${r.dt}','disponivel')">Disponível</button>` : ''}
-                ${r.status!=='reservada' ? `<button class="a2" onclick="setStatus('${r.dt}','reservada')">Reservar</button>` : ''}
-                ${r.status!=='cancelada' ? `<button class="a1" onclick="setStatus('${r.dt}','cancelada')">Cancelar</button>` : ''}
-                <button class="a3" onclick="deleteDt('${r.dt}')">Excluir</button>
-              </div>
-            </td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`;
-}
-function labelDtStatus(status){
-  const map = {
-    disponivel: 'Disponível',
-    reservada: 'Reservada',
-    usada: 'Registrada',
-    cancelada: 'Cancelada'
-  };
-  return map[status] || status;
-}
-function labelType(type){
-  return type === 'registrado' ? 'Registrado' : 'Reservado';
-}
-function labelFlowStatus(status){
-  const map = { aberto: 'Em aberto', concluido: 'Concluído', cancelado: 'Cancelado' };
-  return map[status] || status;
-}
-function renderHistory(){
-  const search = String(el('historySearch').value || '').toLowerCase().trim();
-  const flowFilter = el('historyFlowFilter').value;
-  const sort = el('historySort').value;
-  let rows = [...state.history];
-  if(search){
-    rows = rows.filter(r => [
-      r.dt,r.sku,r.motorista,r.transportadora,r.placaCavalo,r.placaCarreta,r.origem,r.destino,r.observacao,labelType(r.type),labelFlowStatus(r.flowStatus)
-    ].join(' ').toLowerCase().includes(search));
-  }
-  if(flowFilter !== 'todos') rows = rows.filter(r => r.flowStatus===flowFilter);
-  rows.sort((a,b)=> sort==='recentes' ? new Date(b.createdAt)-new Date(a.createdAt) : new Date(a.createdAt)-new Date(b.createdAt));
-  if(!rows.length){
-    el('historyTableWrap').innerHTML = '<div class="empty">Nenhum registro ainda.</div>';
-    return;
-  }
-  el('historyTableWrap').innerHTML = `
-    <table>
-      <thead>
-        <tr><th>Tipo</th><th>Status</th><th>DT</th><th>SKU</th><th>Motorista</th><th>Transportadora</th><th>Placas</th><th>Origem / Destino</th><th>Observação</th><th>Data</th><th>Ações</th></tr>
-      </thead>
-      <tbody>
-        ${rows.map(r=>`
-          <tr>
-            <td><span class="badge status-${r.type==='registrado' ? 'usada' : 'reservada'}">${labelType(r.type)}</span></td>
-            <td><span class="badge status-${r.flowStatus}">${labelFlowStatus(r.flowStatus)}</span></td>
-            <td><strong>${r.dt}</strong></td>
-            <td>${r.sku || '-'}</td>
-            <td>${r.motorista || '-'}</td>
-            <td>${r.transportadora || '-'}</td>
-            <td>${[r.placaCavalo || '-', r.placaCarreta || '-'].join(' / ')}</td>
-            <td>${[r.origem || '-', r.destino || '-'].join(' → ')}</td>
-            <td>${r.observacao || '-'}</td>
-            <td>${fmtDate(r.createdAt)}</td>
-            <td>
-              <div class="row-actions">
-                ${r.flowStatus === 'aberto' ? `
-                  <details class="status-menu">
-                    <summary>Status</summary>
-                    <div class="status-pop">
-                      <button class="ok" onclick="setHistoryFlowStatus('${r.id}','concluido')">Concluído</button>
-                      <button class="cancel" onclick="setHistoryFlowStatus('${r.id}','cancelado')">Cancelado</button>
-                    </div>
-                  </details>` : `<span class="pill-note">${labelFlowStatus(r.flowStatus)}</span>`}
-              </div>
-            </td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`;
-}
-function toast(msg){ alert(msg); }
-function clearRegisterFields(){
-  ['motorista','transportadora','placaCavalo','placaCarreta','origem','destino','observacao'].forEach(id=>el(id).value='');
-}
-function register(type='registrado'){
-  let dt;
-  if(el('dtMode').value === 'manual'){
-    dt = el('manualDtSelect').value;
-    if(!dt) return toast('Selecione uma DT disponível.');
-  } else {
-    dt = nextAvailableDt()?.dt;
-    if(!dt) return toast('Não há DT disponível.');
-  }
-
-  const item = state.dts.find(d=>d.dt===dt && d.status==='disponivel');
-  if(!item) return toast('Essa DT não está disponível.');
-
-  const payload = {
-    id: uid('hist'),
-    dt,
-    sku: item.sku || '',
-    type,
-    flowStatus: 'aberto',
-    motorista: el('motorista').value.trim(),
-    transportadora: el('transportadora').value.trim(),
-    placaCavalo: normalizePlate(el('placaCavalo').value),
-    placaCarreta: normalizePlate(el('placaCarreta').value),
-    origem: el('origem').value.trim(),
-    destino: el('destino').value.trim(),
-    observacao: el('observacao').value.trim(),
-    createdAt: nowIso(),
-    updatedAt: nowIso(),
+  const firebaseConfig = {
+    apiKey: "AIzaSyD7TvN58S0Z4CkMY6G0aRixvYk_xfYul20",
+    authDomain: "controle-11baa.firebaseapp.com",
+    projectId: "controle-11baa",
+    storageBucket: "controle-11baa.firebasestorage.app",
+    messagingSenderId: "351836968592",
+    appId: "1:351836968592:web:8af1d88483cf4ecf47aa15",
+    measurementId: "G-NFC2BWN7WN"
   };
 
-  state.history.unshift(payload);
-  item.status = type === 'registrado' ? 'usada' : 'reservada';
-  item.updatedAt = nowIso();
-  saveState();
-  clearRegisterFields();
-  renderAll();
-  toast(`DT ${dt} ${type === 'registrado' ? 'registrada' : 'reservada'} com sucesso.`);
-}
-function setHistoryStatus(id, newStatus){
-  const record = state.history.find(r => r.id === id);
-  if(!record) return toast('Registro não encontrado.');
-  if(record.flowStatus !== 'aberto') return toast('Esse registro já foi finalizado.');
-  if(newStatus === 'concluido'){
-    record.flowStatus = 'concluido';
-    record.updatedAt = nowIso();
-    removeDt(record.dt);
-    saveState();
-    renderAll();
-    toast(`DT ${record.dt} concluída.`);
-    return;
+  const initialState = { dts: [], history: [] };
+  let state = structuredClone(initialState);
+  let app, auth, db;
+  let unsubDts = null;
+  let unsubHistory = null;
+  let isDtsLoaded = false;
+  let isHistoryLoaded = false;
+
+  const el = (id) => document.getElementById(id);
+  const qsa = (sel) => [...document.querySelectorAll(sel)];
+
+  function uid(prefix='id'){
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
   }
-  if(newStatus === 'cancelado'){
-    record.flowStatus = 'cancelado';
-    record.updatedAt = nowIso();
-    ensureDtAvailable(record.dt, record.sku || '');
-    saveState();
-    renderAll();
-    toast(`DT ${record.dt} cancelada e devolvida ao cadastro.`);
+  function nowIso(){ return new Date().toISOString(); }
+  function normalizeDt(v){ return String(v || '').replace(/\D/g,''); }
+  function normalizePlate(v){ return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,7); }
+  function asDate(v){
+    if(!v) return null;
+    if(v instanceof Date) return v;
+    if(typeof v?.toDate === 'function') return v.toDate();
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
   }
-}
-function exportDtsCsv(){
-  const lines = [['DT','SKU','Status','Criada','Atualizada'], ...state.dts.map(r=>[r.dt,r.sku || '',labelDtStatus(r.status),fmtDate(r.createdAt),fmtDate(r.updatedAt)])];
-  downloadFile('dts.csv', lines.map(l=>l.map(csvEscape).join(';')).join('\n'), 'text/csv;charset=utf-8');
-}
-function exportHistoryCsv(){
-  const lines = [[
-    'Tipo','Status','DT','SKU','Motorista','Transportadora','Placa Cavalo','Placa Carreta','Origem','Destino','Observação','Criado em','Atualizado em'
-  ], ...state.history.map(r=>[
-    labelType(r.type),labelFlowStatus(r.flowStatus),r.dt,r.sku || '',r.motorista,r.transportadora,r.placaCavalo,r.placaCarreta,r.origem,r.destino,r.observacao,fmtDate(r.createdAt),fmtDate(r.updatedAt)
-  ])];
-  downloadFile('historico_dts.csv', lines.map(l=>l.map(csvEscape).join(';')).join('\n'), 'text/csv;charset=utf-8');
-}
-function backupJson(){ downloadFile('backup_controle_dts.json', JSON.stringify(state, null, 2), 'application/json;charset=utf-8'); }
-function restoreJson(file){
-  const reader = new FileReader();
-  reader.onload = () => {
-    try{
-      const parsed = JSON.parse(reader.result);
-      if(!Array.isArray(parsed.dts) || !Array.isArray(parsed.history)) throw new Error('Formato inválido');
-      parsed.history = parsed.history.map(item => ({
-        ...item,
-        id: item.id || uid('hist'),
-        flowStatus: item.flowStatus || inferFlowStatus(item)
-      }));
-      state = parsed;
-      saveState();
+  function fmtDate(v){
+    const d = asDate(v);
+    return d ? d.toLocaleString('pt-BR') : '-';
+  }
+  function downloadFile(name, content, type='text/plain;charset=utf-8'){
+    const blob = new Blob([content], { type });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  function csvEscape(v){
+    const s = String(v ?? '');
+    if(/[";,\n]/.test(s)) return '"' + s.replaceAll('"','""') + '"';
+    return s;
+  }
+  function inferFlowStatus(item){
+    if(item.flowStatus) return item.flowStatus;
+    return 'aberto';
+  }
+  function toast(msg){ alert(msg); }
+  function setSyncBadge(kind, text){
+    const badge = el('syncBadge');
+    const textEl = el('syncText');
+    badge.classList.remove('ok','warn','err');
+    badge.classList.add(kind);
+    textEl.textContent = text;
+  }
+  function sortDts(list, sortMode){
+    return [...list].sort((a,b)=>{
+      const aCreated = asDate(a.createdAt)?.getTime() || 0;
+      const bCreated = asDate(b.createdAt)?.getTime() || 0;
+      if(sortMode==='recentes') return bCreated - aCreated;
+      if(sortMode==='antigas') return aCreated - bCreated;
+      if(sortMode==='dt_asc') return a.dt.localeCompare(b.dt);
+      return b.dt.localeCompare(a.dt);
+    });
+  }
+  function sortHistory(list, sort='recentes'){
+    return [...list].sort((a,b)=>{
+      const aCreated = asDate(a.createdAt)?.getTime() || 0;
+      const bCreated = asDate(b.createdAt)?.getTime() || 0;
+      return sort==='recentes' ? bCreated - aCreated : aCreated - bCreated;
+    });
+  }
+  function getStats(){
+    return {
+      total: state.dts.length,
+      disponivel: state.dts.filter(d=>d.status==='disponivel').length,
+      reservada: state.dts.filter(d=>d.status==='reservada').length,
+      concluidasHoje: state.history.filter(h => h.flowStatus==='concluido' && sameDay(asDate(h.updatedAt || h.createdAt), new Date())).length,
+    };
+  }
+  function sameDay(a,b){
+    if(!a || !b) return false;
+    return a.getDate()===b.getDate() && a.getMonth()===b.getMonth() && a.getFullYear()===b.getFullYear();
+  }
+  function getAvailableDts(){ return state.dts.filter(d=>d.status==='disponivel'); }
+  function nextAvailableDt(){
+    return [...getAvailableDts()].sort((a,b)=> (asDate(a.createdAt)?.getTime() || 0) - (asDate(b.createdAt)?.getTime() || 0))[0] || null;
+  }
+  function getAvailableSkus(){
+    return [...new Set(getAvailableDts().map(d => String(d.sku || '').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  }
+  function renderStats(){
+    const s = getStats();
+    el('stats').innerHTML = `
+      <div class="card stat"><div class="label">Total</div><div class="value">${s.total}</div></div>
+      <div class="card stat"><div class="label">Disponíveis</div><div class="value green">${s.disponivel}</div></div>
+      <div class="card stat"><div class="label">Reservadas</div><div class="value yellow">${s.reservada}</div></div>
+      <div class="card stat"><div class="label">Concluídas hoje</div><div class="value blue">${s.concluidasHoje}</div></div>`;
+  }
+  function manualDtOptions(){
+    const manualMode = el('dtMode').value === 'manual';
+    el('manualFilterWrap').style.display = manualMode ? 'grid' : 'none';
+    el('manualDtField').style.display = manualMode ? 'block' : 'none';
+    if(!manualMode){
+      el('manualSkuField').style.display = 'none';
+      return;
+    }
+
+    const skuMode = el('manualSelectMode').value === 'sku';
+    const skus = getAvailableSkus();
+    el('manualSkuField').style.display = skuMode ? 'block' : 'none';
+    el('manualSkuSelect').innerHTML = skus.length
+      ? '<option value="">Selecione o SKU</option>' + skus.map(sku => `<option value="${escapeHtml(sku)}">${escapeHtml(sku)}</option>`).join('')
+      : '<option value="">Sem SKU disponível</option>';
+
+    const selectedSku = el('manualSkuSelect').value;
+    let opts = getAvailableDts();
+    if(skuMode){
+      opts = selectedSku ? opts.filter(d => String(d.sku || '').trim() === selectedSku) : [];
+    }
+    opts = opts.sort((a,b)=> a.dt.localeCompare(b.dt));
+    el('manualDtSelect').innerHTML = opts.length
+      ? opts.map(d=>`<option value="${d.dt}">${d.dt}${d.sku ? ' • ' + escapeHtml(d.sku) : ''}</option>`).join('')
+      : `<option value="">${skuMode ? 'Nenhuma DT disponível para esse SKU' : 'Sem DT disponível'}</option>`;
+  }
+  function labelDtStatus(status){
+    const map = {
+      disponivel: 'Disponível',
+      reservada: 'Reservada',
+      usada: 'Registrada',
+      cancelada: 'Cancelada'
+    };
+    return map[status] || status;
+  }
+  function labelType(type){
+    return type === 'registrado' ? 'Registrado' : 'Reservado';
+  }
+  function labelFlowStatus(status){
+    const map = { aberto: 'Em aberto', concluido: 'Concluído', cancelado: 'Cancelado' };
+    return map[status] || status;
+  }
+  function escapeHtml(text){
+    return String(text ?? '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#39;");
+  }
+  function renderDtTable(){
+    const searchRaw = String(el('searchDt').value || '').trim().toLowerCase();
+    const searchDt = normalizeDt(searchRaw);
+    const status = el('statusFilter').value;
+    const sortMode = el('sortMode').value;
+    let rows = [...state.dts];
+    if(searchRaw){
+      rows = rows.filter(r =>
+        (searchDt && r.dt.includes(searchDt)) ||
+        String(r.sku || '').toLowerCase().includes(searchRaw)
+      );
+    }
+    if(status !== 'todos') rows = rows.filter(r=>r.status===status);
+    rows = sortDts(rows, sortMode);
+    if(!rows.length){
+      el('dtTableWrap').innerHTML = '<div class="empty">Nenhuma DT encontrada.</div>';
+      return;
+    }
+    el('dtTableWrap').innerHTML = `
+      <table>
+        <thead>
+          <tr><th>DT</th><th>SKU</th><th>Status</th><th>Criada</th><th>Atualizada</th><th>Ações</th></tr>
+        </thead>
+        <tbody>
+          ${rows.map(r=>`
+            <tr>
+              <td><strong>${escapeHtml(r.dt)}</strong></td>
+              <td>${escapeHtml(r.sku || '-')}</td>
+              <td><span class="badge status-${escapeHtml(r.status)}">${labelDtStatus(r.status)}</span></td>
+              <td>${fmtDate(r.createdAt)}</td>
+              <td>${fmtDate(r.updatedAt)}</td>
+              <td>
+                <div class="row-actions">
+                  ${r.status!=='disponivel' ? `<button class="a4" onclick="window.setStatus('${escapeHtml(r.dt)}','disponivel')">Disponível</button>` : ''}
+                  ${r.status!=='reservada' ? `<button class="a2" onclick="window.setStatus('${escapeHtml(r.dt)}','reservada')">Reservar</button>` : ''}
+                  ${r.status!=='cancelada' ? `<button class="a1" onclick="window.setStatus('${escapeHtml(r.dt)}','cancelada')">Cancelar</button>` : ''}
+                  <button class="a3" onclick="window.deleteDt('${escapeHtml(r.dt)}')">Excluir</button>
+                </div>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+  function renderHistory(){
+    const search = String(el('historySearch').value || '').toLowerCase().trim();
+    const flowFilter = el('historyFlowFilter').value;
+    const sort = el('historySort').value;
+    let rows = [...state.history];
+    if(search){
+      rows = rows.filter(r => [
+        r.dt,r.sku,r.motorista,r.transportadora,r.placaCavalo,r.placaCarreta,r.origem,r.destino,r.observacao,labelType(r.type),labelFlowStatus(r.flowStatus)
+      ].join(' ').toLowerCase().includes(search));
+    }
+    if(flowFilter !== 'todos') rows = rows.filter(r => r.flowStatus===flowFilter);
+    rows = sortHistory(rows, sort);
+    if(!rows.length){
+      el('historyTableWrap').innerHTML = '<div class="empty">Nenhum registro ainda.</div>';
+      return;
+    }
+    el('historyTableWrap').innerHTML = `
+      <table>
+        <thead>
+          <tr><th>Tipo</th><th>Status</th><th>DT</th><th>SKU</th><th>Motorista</th><th>Transportadora</th><th>Placas</th><th>Origem / Destino</th><th>Observação</th><th>Data</th><th>Ações</th></tr>
+        </thead>
+        <tbody>
+          ${rows.map(r=>`
+            <tr>
+              <td><span class="badge status-${r.type==='registrado' ? 'usada' : 'reservada'}">${labelType(r.type)}</span></td>
+              <td><span class="badge status-${escapeHtml(r.flowStatus)}">${labelFlowStatus(r.flowStatus)}</span></td>
+              <td><strong>${escapeHtml(r.dt)}</strong></td>
+              <td>${escapeHtml(r.sku || '-')}</td>
+              <td>${escapeHtml(r.motorista || '-')}</td>
+              <td>${escapeHtml(r.transportadora || '-')}</td>
+              <td>${escapeHtml([r.placaCavalo || '-', r.placaCarreta || '-'].join(' / '))}</td>
+              <td>${escapeHtml([r.origem || '-', r.destino || '-'].join(' → '))}</td>
+              <td>${escapeHtml(r.observacao || '-')}</td>
+              <td>${fmtDate(r.createdAt)}</td>
+              <td>
+                <div class="row-actions">
+                  ${r.flowStatus === 'aberto' ? `
+                    <details class="status-menu">
+                      <summary>Status</summary>
+                      <div class="status-pop">
+                        <button class="ok" onclick="window.setHistoryFlowStatus('${escapeHtml(r.id)}','concluido')">Concluído</button>
+                        <button class="cancel" onclick="window.setHistoryFlowStatus('${escapeHtml(r.id)}','cancelado')">Cancelado</button>
+                      </div>
+                    </details>` : `<span class="pill-note">${labelFlowStatus(r.flowStatus)}</span>`}
+                </div>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+  function renderAll(){
+    renderStats();
+    renderDtTable();
+    renderHistory();
+    manualDtOptions();
+  }
+  function clearRegisterFields(){
+    ['motorista','transportadora','placaCavalo','placaCarreta','origem','destino','observacao'].forEach(id=>el(id).value='');
+  }
+  function switchTab(tab){
+    qsa('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
+    el('screen-cadastro').classList.toggle('active', tab==='cadastro');
+    el('screen-registro').classList.toggle('active', tab==='registro');
+  }
+
+  async function addDt(value, sku=''){
+    const dt = normalizeDt(value);
+    const skuValue = String(sku || '').trim();
+    if(!dt) return {ok:false,msg:'Digite uma DT válida.'};
+    if(state.dts.some(d=>d.dt===dt)) return {ok:false,msg:`DT ${dt} já cadastrada.`};
+
+    await setDoc(doc(db, 'dts', dt), {
+      dt,
+      sku: skuValue,
+      status:'disponivel',
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    });
+    return {ok:true,msg:`DT ${dt} adicionada.`};
+  }
+
+  async function addBulk(text, sku=''){
+    const skuValue = String(sku || '').trim();
+    const parts = String(text || '').split(/[\s,;\n\r\t]+/).map(normalizeDt).filter(Boolean);
+    let added = 0, ignored = 0;
+    for(const dt of parts){
+      if(state.dts.some(d=>d.dt===dt)){ ignored++; continue; }
+      await setDoc(doc(db, 'dts', dt), {
+        dt,
+        sku: skuValue,
+        status:'disponivel',
+        createdAt: nowIso(),
+        updatedAt: nowIso()
+      });
+      added++;
+    }
+    return {added, ignored};
+  }
+
+  async function updateDtStatus(dt, status){
+    const ref = doc(db, 'dts', dt);
+    const snap = await getDoc(ref);
+    if(!snap.exists()) throw new Error('DT não encontrada.');
+    await updateDoc(ref, { status, updatedAt: nowIso() });
+  }
+
+  async function ensureDtAvailable(dt, sku=''){
+    const dtNorm = normalizeDt(dt);
+    if(!dtNorm) return;
+    await setDoc(doc(db, 'dts', dtNorm), {
+      dt: dtNorm,
+      sku: String(sku || '').trim(),
+      status: 'disponivel',
+      updatedAt: nowIso(),
+      createdAt: nowIso()
+    }, { merge: true });
+  }
+
+  async function removeDt(dt){
+    await deleteDoc(doc(db, 'dts', dt));
+  }
+
+  async function register(type='registrado'){
+    let dt;
+    if(el('dtMode').value === 'manual'){
+      dt = el('manualDtSelect').value;
+      if(!dt) return toast('Selecione uma DT disponível.');
+    } else {
+      dt = nextAvailableDt()?.dt;
+      if(!dt) return toast('Não há DT disponível.');
+    }
+
+    const historyRef = doc(collection(db, 'registros'));
+    const dtRef = doc(db, 'dts', dt);
+
+    const payload = {
+      id: historyRef.id,
+      dt,
+      type,
+      flowStatus: 'aberto',
+      motorista: el('motorista').value.trim(),
+      transportadora: el('transportadora').value.trim(),
+      placaCavalo: normalizePlate(el('placaCavalo').value),
+      placaCarreta: normalizePlate(el('placaCarreta').value),
+      origem: el('origem').value.trim(),
+      destino: el('destino').value.trim(),
+      observacao: el('observacao').value.trim(),
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+
+    await runTransaction(db, async (transaction) => {
+      const dtSnap = await transaction.get(dtRef);
+      if(!dtSnap.exists()) throw new Error('DT não encontrada.');
+      const dtData = dtSnap.data();
+      if(dtData.status !== 'disponivel') throw new Error('Essa DT não está disponível.');
+
+      transaction.update(dtRef, {
+        status: type === 'registrado' ? 'usada' : 'reservada',
+        updatedAt: nowIso()
+      });
+
+      transaction.set(historyRef, {
+        ...payload,
+        sku: dtData.sku || ''
+      });
+    });
+
+    clearRegisterFields();
+    toast(`DT ${dt} ${type === 'registrado' ? 'registrada' : 'reservada'} com sucesso.`);
+  }
+
+  async function setHistoryStatus(id, newStatus){
+    const historyRef = doc(db, 'registros', id);
+    await runTransaction(db, async (transaction) => {
+      const historySnap = await transaction.get(historyRef);
+      if(!historySnap.exists()) throw new Error('Registro não encontrado.');
+      const record = historySnap.data();
+      if(record.flowStatus !== 'aberto') throw new Error('Esse registro já foi finalizado.');
+
+      transaction.update(historyRef, {
+        flowStatus: newStatus,
+        updatedAt: nowIso()
+      });
+
+      const dtRef = doc(db, 'dts', record.dt);
+      if(newStatus === 'concluido'){
+        transaction.delete(dtRef);
+      } else if(newStatus === 'cancelado'){
+        transaction.set(dtRef, {
+          dt: record.dt,
+          sku: record.sku || '',
+          status: 'disponivel',
+          updatedAt: nowIso(),
+          createdAt: nowIso()
+        }, { merge: true });
+      }
+    });
+
+    toast(newStatus === 'concluido'
+      ? 'DT concluída.'
+      : 'DT cancelada e devolvida ao cadastro.');
+  }
+
+  async function clearByStatus(status){
+    const batch = writeBatch(db);
+    let count = 0;
+    for(const item of state.dts.filter(d => d.status === status)){
+      batch.delete(doc(db, 'dts', item.dt));
+      count++;
+    }
+    if(!count) return 0;
+    await batch.commit();
+    return count;
+  }
+
+  async function clearAllData(){
+    const dtChunks = [...state.dts];
+    const histChunks = [...state.history];
+    const groups = [];
+    let current = [];
+
+    for(const item of dtChunks){
+      current.push({ type: 'dt', id: item.dt });
+      if(current.length === 400){ groups.push(current); current = []; }
+    }
+    for(const item of histChunks){
+      current.push({ type: 'hist', id: item.id });
+      if(current.length === 400){ groups.push(current); current = []; }
+    }
+    if(current.length) groups.push(current);
+
+    for(const group of groups){
+      const batch = writeBatch(db);
+      for(const entry of group){
+        if(entry.type === 'dt') batch.delete(doc(db, 'dts', entry.id));
+        else batch.delete(doc(db, 'registros', entry.id));
+      }
+      await batch.commit();
+    }
+  }
+
+  function exportDtsCsv(){
+    const lines = [['DT','SKU','Status','Criada','Atualizada'], ...state.dts.map(r=>[r.dt,r.sku || '',labelDtStatus(r.status),fmtDate(r.createdAt),fmtDate(r.updatedAt)])];
+    downloadFile('dts.csv', lines.map(l=>l.map(csvEscape).join(';')).join('\n'), 'text/csv;charset=utf-8');
+  }
+  function exportHistoryCsv(){
+    const lines = [[
+      'Tipo','Status','DT','SKU','Motorista','Transportadora','Placa Cavalo','Placa Carreta','Origem','Destino','Observação','Criado em','Atualizado em'
+    ], ...state.history.map(r=>[
+      labelType(r.type),labelFlowStatus(r.flowStatus),r.dt,r.sku || '',r.motorista,r.transportadora,r.placaCavalo,r.placaCarreta,r.origem,r.destino,r.observacao,fmtDate(r.createdAt),fmtDate(r.updatedAt)
+    ])];
+    downloadFile('historico_dts.csv', lines.map(l=>l.map(csvEscape).join(';')).join('\n'), 'text/csv;charset=utf-8');
+  }
+  function backupJson(){
+    downloadFile('backup_controle_dts.json', JSON.stringify({
+      dts: state.dts,
+      history: state.history
+    }, null, 2), 'application/json;charset=utf-8');
+  }
+
+  async function writeInChunks(items, writer){
+    for(let i = 0; i < items.length; i += 350){
+      const chunk = items.slice(i, i + 350);
+      const batch = writeBatch(db);
+      chunk.forEach(item => writer(batch, item));
+      await batch.commit();
+    }
+  }
+
+  async function restoreJson(file){
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try{
+        const parsed = JSON.parse(reader.result);
+        if(!Array.isArray(parsed.dts) || !Array.isArray(parsed.history)) throw new Error('Formato inválido');
+        if(!confirm('Restaurar esse backup e substituir o que está no Firebase?')) return;
+
+        setSyncBadge('warn', 'Restaurando');
+        await clearAllData();
+
+        const dtsToWrite = parsed.dts.map(item => ({
+          dt: normalizeDt(item.dt),
+          sku: String(item.sku || '').trim(),
+          status: item.status || 'disponivel',
+          createdAt: item.createdAt || nowIso(),
+          updatedAt: item.updatedAt || nowIso()
+        })).filter(item => item.dt);
+
+        const historyToWrite = parsed.history.map(item => ({
+          id: item.id || uid('hist'),
+          dt: normalizeDt(item.dt),
+          sku: String(item.sku || '').trim(),
+          type: item.type || 'registrado',
+          flowStatus: item.flowStatus || inferFlowStatus(item),
+          motorista: item.motorista || '',
+          transportadora: item.transportadora || '',
+          placaCavalo: normalizePlate(item.placaCavalo || ''),
+          placaCarreta: normalizePlate(item.placaCarreta || ''),
+          origem: item.origem || '',
+          destino: item.destino || '',
+          observacao: item.observacao || '',
+          createdAt: item.createdAt || nowIso(),
+          updatedAt: item.updatedAt || nowIso()
+        })).filter(item => item.dt);
+
+        await writeInChunks(dtsToWrite, (batch, item) => {
+          batch.set(doc(db, 'dts', item.dt), item);
+        });
+        await writeInChunks(historyToWrite, (batch, item) => {
+          batch.set(doc(db, 'registros', item.id), item);
+        });
+
+        setSyncBadge('ok', 'Online');
+        toast('Backup restaurado.');
+      }catch(e){
+        console.error(e);
+        setSyncBadge('err', 'Erro');
+        toast('Arquivo inválido.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function attachRealtime(){
+    if(unsubDts) unsubDts();
+    if(unsubHistory) unsubHistory();
+
+    isDtsLoaded = false;
+    isHistoryLoaded = false;
+    setSyncBadge('warn', 'Sincronizando');
+
+    unsubDts = onSnapshot(collection(db, 'dts'), (snapshot) => {
+      state.dts = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+          dt: data.dt || docSnap.id,
+          sku: data.sku || '',
+          status: data.status || 'disponivel',
+          createdAt: data.createdAt || '',
+          updatedAt: data.updatedAt || data.createdAt || ''
+        };
+      });
+      isDtsLoaded = true;
+      if(isDtsLoaded && isHistoryLoaded) setSyncBadge('ok', 'Online');
       renderAll();
-      toast('Backup restaurado.');
-    }catch(e){
-      toast('Arquivo inválido.');
+    }, (error) => {
+      console.error(error);
+      setSyncBadge('err', 'Erro');
+      toast('Erro ao ler DTs do Firebase.');
+    });
+
+    unsubHistory = onSnapshot(collection(db, 'registros'), (snapshot) => {
+      state.history = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+          id: data.id || docSnap.id,
+          dt: data.dt || '',
+          sku: data.sku || '',
+          type: data.type || 'registrado',
+          flowStatus: data.flowStatus || inferFlowStatus(data),
+          motorista: data.motorista || '',
+          transportadora: data.transportadora || '',
+          placaCavalo: data.placaCavalo || '',
+          placaCarreta: data.placaCarreta || '',
+          origem: data.origem || '',
+          destino: data.destino || '',
+          observacao: data.observacao || '',
+          createdAt: data.createdAt || '',
+          updatedAt: data.updatedAt || data.createdAt || ''
+        };
+      });
+      isHistoryLoaded = true;
+      if(isDtsLoaded && isHistoryLoaded) setSyncBadge('ok', 'Online');
+      renderAll();
+    }, (error) => {
+      console.error(error);
+      setSyncBadge('err', 'Erro');
+      toast('Erro ao ler histórico do Firebase.');
+    });
+  }
+
+  async function initFirebase(){
+    try{
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+      setSyncBadge('warn', 'Entrando');
+
+      onAuthStateChanged(auth, (user) => {
+        if(user){
+          attachRealtime();
+        }
+      });
+
+      await signInAnonymously(auth);
+    }catch(error){
+      console.error(error);
+      setSyncBadge('err', 'Erro');
+      toast('Não foi possível conectar no Firebase. Ative o login anônimo e o Firestore.');
+    }
+  }
+
+  window.setStatus = async (dt,status) => {
+    try{
+      await updateDtStatus(dt,status);
+    }catch(error){
+      console.error(error);
+      toast(error.message || 'Erro ao atualizar status.');
     }
   };
-  reader.readAsText(file);
-}
-function renderAll(){
-  renderStats();
-  renderDtTable();
-  renderHistory();
-  manualDtOptions();
-}
-function switchTab(tab){
-  qsa('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
-  el('screen-cadastro').classList.toggle('active', tab==='cadastro');
-  el('screen-registro').classList.toggle('active', tab==='registro');
-}
-window.setStatus = (dt,status) => {
-  updateDtStatus(dt,status);
-  renderAll();
-};
-window.deleteDt = (dt) => {
-  if(confirm(`Excluir DT ${dt}?`)){
-    removeDt(dt);
-    renderAll();
-  }
-};
-window.setHistoryFlowStatus = (id,status) => setHistoryStatus(id,status);
+  window.deleteDt = async (dt) => {
+    if(!confirm(`Excluir DT ${dt}?`)) return;
+    try{
+      await removeDt(dt);
+    }catch(error){
+      console.error(error);
+      toast('Erro ao excluir DT.');
+    }
+  };
+  window.setHistoryFlowStatus = async (id,status) => {
+    try{
+      await setHistoryStatus(id,status);
+    }catch(error){
+      console.error(error);
+      toast(error.message || 'Erro ao atualizar status do registro.');
+    }
+  };
 
-qsa('.tab').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
-el('addSingleDtBtn').addEventListener('click', ()=>{
-  const res = addDt(el('singleDt').value, el('singleSku').value);
-  if(!res.ok) return toast(res.msg);
-  el('singleDt').value='';
-  el('singleSku').value='';
-  renderAll();
-});
-el('clearSingleDtBtn').addEventListener('click', ()=>{
-  el('singleDt').value='';
-  el('singleSku').value='';
-});
-el('addBulkDtBtn').addEventListener('click', ()=>{
-  const {added, ignored} = addBulk(el('bulkDts').value, el('bulkSku').value);
-  el('bulkDts').value='';
-  el('bulkSku').value='';
-  renderAll();
-  toast(`${added} DT(s) adicionada(s). ${ignored} ignorada(s).`);
-});
-el('clearBulkBtn').addEventListener('click', ()=>{
-  el('bulkDts').value='';
-  el('bulkSku').value='';
-});
-el('dtMode').addEventListener('change', ()=>{
-  el('manualDtField').style.display = el('dtMode').value==='manual' ? 'block' : 'none';
-  manualDtOptions();
-});
-el('registerBaldeioBtn').addEventListener('click', ()=> register('registrado'));
-el('reserveNextBtn').addEventListener('click', ()=> register('reservado'));
-['searchDt','statusFilter','sortMode','historySearch','historyFlowFilter','historySort'].forEach(id => el(id).addEventListener('input', renderAll));
-el('exportDtCsvBtn').addEventListener('click', exportDtsCsv);
-el('exportHistoryCsvBtn').addEventListener('click', exportHistoryCsv);
-el('backupJsonBtn').addEventListener('click', backupJson);
-el('restoreJsonBtn').addEventListener('click', ()=> el('restoreJsonInput').click());
-el('restoreJsonInput').addEventListener('change', (e)=>{
-  const file = e.target.files?.[0];
-  if(file) restoreJson(file);
-  e.target.value='';
-});
-el('clearUsedBtn').addEventListener('click', ()=>{
-  if(confirm('Excluir todas as DTs registradas?')){
-    state.dts = state.dts.filter(d=>d.status!=='usada');
-    saveState();
-    renderAll();
-  }
-});
-el('clearCancelledBtn').addEventListener('click', ()=>{
-  if(confirm('Excluir todas as DTs canceladas?')){
-    state.dts = state.dts.filter(d=>d.status!=='cancelada');
-    saveState();
-    renderAll();
-  }
-});
-el('clearAllBtn').addEventListener('click', ()=>{
-  if(confirm('Limpar todas as DTs e o histórico?')){
-    state = structuredClone(initialState);
-    saveState();
-    renderAll();
-  }
-});
-['placaCavalo','placaCarreta'].forEach(id => el(id).addEventListener('input', e => e.target.value = normalizePlate(e.target.value)));
+  qsa('.tab').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+  el('addSingleDtBtn').addEventListener('click', async ()=>{
+    try{
+      const res = await addDt(el('singleDt').value, el('singleSku').value);
+      if(!res.ok) return toast(res.msg);
+      el('singleDt').value='';
+      el('singleSku').value='';
+    }catch(error){
+      console.error(error);
+      toast(error.message || 'Erro ao adicionar DT.');
+    }
+  });
+  el('clearSingleDtBtn').addEventListener('click', ()=>{
+    el('singleDt').value='';
+    el('singleSku').value='';
+  });
+  el('addBulkDtBtn').addEventListener('click', async ()=>{
+    try{
+      const {added, ignored} = await addBulk(el('bulkDts').value, el('bulkSku').value);
+      el('bulkDts').value='';
+      el('bulkSku').value='';
+      toast(`${added} DT(s) adicionada(s). ${ignored} ignorada(s).`);
+    }catch(error){
+      console.error(error);
+      toast('Erro ao adicionar lote.');
+    }
+  });
+  el('clearBulkBtn').addEventListener('click', ()=>{
+    el('bulkDts').value='';
+    el('bulkSku').value='';
+  });
+  el('dtMode').addEventListener('change', manualDtOptions);
+  el('manualSelectMode').addEventListener('change', ()=>{
+    if(el('manualSelectMode').value !== 'sku') el('manualSkuSelect').value = '';
+    manualDtOptions();
+  });
+  el('manualSkuSelect').addEventListener('change', manualDtOptions);
+  el('registerBaldeioBtn').addEventListener('click', async ()=> {
+    try{
+      await register('registrado');
+    }catch(error){
+      console.error(error);
+      toast(error.message || 'Erro ao registrar.');
+    }
+  });
+  el('reserveNextBtn').addEventListener('click', async ()=> {
+    try{
+      await register('reservado');
+    }catch(error){
+      console.error(error);
+      toast(error.message || 'Erro ao reservar.');
+    }
+  });
+  ['searchDt','statusFilter','sortMode','historySearch','historyFlowFilter','historySort'].forEach(id => el(id).addEventListener('input', renderAll));
+  el('exportDtCsvBtn').addEventListener('click', exportDtsCsv);
+  el('exportHistoryCsvBtn').addEventListener('click', exportHistoryCsv);
+  el('backupJsonBtn').addEventListener('click', backupJson);
+  el('restoreJsonBtn').addEventListener('click', ()=> el('restoreJsonInput').click());
+  el('restoreJsonInput').addEventListener('change', (e)=>{
+    const file = e.target.files?.[0];
+    if(file) restoreJson(file);
+    e.target.value='';
+  });
+  el('clearUsedBtn').addEventListener('click', async ()=>{
+    if(!confirm('Excluir todas as DTs registradas?')) return;
+    try{
+      const count = await clearByStatus('usada');
+      if(count === 0) toast('Nenhuma DT registrada para excluir.');
+    }catch(error){
+      console.error(error);
+      toast('Erro ao excluir DTs registradas.');
+    }
+  });
+  el('clearCancelledBtn').addEventListener('click', async ()=>{
+    if(!confirm('Excluir todas as DTs canceladas?')) return;
+    try{
+      const count = await clearByStatus('cancelada');
+      if(count === 0) toast('Nenhuma DT cancelada para excluir.');
+    }catch(error){
+      console.error(error);
+      toast('Erro ao excluir DTs canceladas.');
+    }
+  });
+  el('clearAllBtn').addEventListener('click', async ()=>{
+    if(!confirm('Limpar todas as DTs e o histórico?')) return;
+    try{
+      await clearAllData();
+    }catch(error){
+      console.error(error);
+      toast('Erro ao limpar dados.');
+    }
+  });
+  ['placaCavalo','placaCarreta'].forEach(id => el(id).addEventListener('input', e => e.target.value = normalizePlate(e.target.value)));
 
-renderAll();
+  renderAll();
+  initFirebase();
 </script>
 </body>
 </html>
