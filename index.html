@@ -348,6 +348,9 @@
                 </select>
               </div>
             </div>
+            <div class="toolbar">
+              <button class="mini" id="clearHistoryBtn">Limpar histórico</button>
+            </div>
             <div class="table-wrap" id="historyTableWrap"></div>
           </div>
         </main>
@@ -813,6 +816,25 @@
     }
   }
 
+  async function clearHistoryData(){
+    const groups = [];
+    let current = [];
+
+    for(const item of state.history){
+      current.push(item.id);
+      if(current.length === 400){ groups.push(current); current = []; }
+    }
+    if(current.length) groups.push(current);
+
+    for(const group of groups){
+      const batch = writeBatch(db);
+      for(const id of group){
+        batch.delete(doc(db, 'registros', id));
+      }
+      await batch.commit();
+    }
+  }
+
   function exportDtsCsv(){
     const lines = [['DT','SKU','Status','Criada','Atualizada'], ...state.dts.map(r=>[r.dt,r.sku || '',labelDtStatus(r.status),fmtDate(r.createdAt),fmtDate(r.updatedAt)])];
     downloadFile('dts.csv', lines.map(l=>l.map(csvEscape).join(';')).join('\n'), 'text/csv;charset=utf-8');
@@ -1090,6 +1112,15 @@
     }catch(error){
       console.error(error);
       toast('Erro ao limpar dados.');
+    }
+  });
+  el('clearHistoryBtn').addEventListener('click', async ()=>{
+    if(!confirm('Limpar todo o histórico de registros?')) return;
+    try{
+      await clearHistoryData();
+    }catch(error){
+      console.error(error);
+      toast('Erro ao limpar histórico.');
     }
   });
   ['placaCavalo','placaCarreta'].forEach(id => el(id).addEventListener('input', e => e.target.value = normalizePlate(e.target.value)));
