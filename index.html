@@ -1,2193 +1,957 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" -->
-  <title>Controle de DTs + Drop & Hook</title>
-  <style>
-    :root{
-      --bg:#08111f;
-      --panel:#0f172a;
-      --panel-2:#111827;
-      --line:rgba(255,255,255,.10);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --green:#22c55e;
-      --yellow:#f59e0b;
-      --red:#ef4444;
-      --blue:#3b82f6;
-      --violet:#8b5cf6;
-      --shadow:0 18px 40px rgba(0,0,0,.28);
-      --radius:18px;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:Inter, Arial, Helvetica, sans-serif;
-      background:linear-gradient(180deg,#07101c 0%, #0b1323 100%);
-      color:var(--text);
-      min-height:100vh;
-    }
-    .wrap{width:100%;max-width:none;margin:0;padding:16px 24px}
-    .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
-    .brand{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-weight:800}
-    .brand-dot{width:10px;height:10px;border-radius:999px;background:var(--green);box-shadow:0 0 12px rgba(34,197,94,.55)}
-    .tabs{display:flex;gap:10px;flex-wrap:wrap}
-    .tab{border:none;cursor:pointer;color:var(--text);background:rgba(255,255,255,.04);border:1px solid var(--line);padding:12px 16px;border-radius:14px;font-weight:800;font-size:14px}
-    .tab.active{background:linear-gradient(135deg,rgba(34,197,94,.18),rgba(59,130,246,.10));border-color:rgba(34,197,94,.28)}
-    .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin-bottom:16px}
-    .card{background:rgba(15,23,42,.92);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-    .stat{padding:16px}
-    .stat .label{font-size:13px;color:var(--muted);margin-bottom:10px}
-    .stat .value{font-size:30px;font-weight:900;line-height:1}
-    .green{color:var(--green)} .yellow{color:var(--yellow)} .red{color:var(--red)} .blue{color:#60a5fa} .violet{color:#c4b5fd}
-    .screen{display:none}
-    .screen.active{display:block}
-    .layout{display:grid;grid-template-columns:380px 1fr;gap:16px}
-    .panel{padding:16px}
-    .title-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
-    .title-row h2{margin:0;font-size:20px}
-    .title-row .hint{font-size:12px;color:var(--muted)}
-    .field{margin-bottom:12px}
-    .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:700}
-    input, select, textarea{
-      width:100%;padding:12px 13px;border-radius:13px;border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.04);color:var(--text);outline:none;font-size:14px;
-    }
-    select{
-      appearance:none;-webkit-appearance:none;-moz-appearance:none;
-      padding-right:40px;
-      background-image:
-        linear-gradient(45deg, transparent 50%, #cbd5e1 50%),
-        linear-gradient(135deg, #cbd5e1 50%, transparent 50%);
-      background-position:
-        calc(100% - 18px) calc(50% - 3px),
-        calc(100% - 12px) calc(50% - 3px);
-      background-size:6px 6px, 6px 6px;
-      background-repeat:no-repeat;
-      color-scheme:dark;
-    }
-    select option{background:#0b1220;color:#e5e7eb}
-    textarea{min-height:90px;resize:vertical}
-    input:focus, select:focus, textarea:focus{border-color:rgba(59,130,246,.45);box-shadow:0 0 0 3px rgba(59,130,246,.14)}
-    .row-2,.row-3,.row-4{display:grid;gap:12px}
-    .row-2{grid-template-columns:1fr 1fr}
-    .row-3{grid-template-columns:repeat(3,minmax(0,1fr))}
-    .row-4{grid-template-columns:repeat(4,minmax(0,1fr))}
-    .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    button.btn{border:none;cursor:pointer;padding:12px 14px;border-radius:13px;font-weight:800;color:white}
-    .btn.green{background:#16a34a}.btn.blue{background:#2563eb}.btn.yellow{background:#d97706}.btn.red{background:#dc2626}.btn.gray{background:#334155}.btn.violet{background:#7c3aed}
-    .btn.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}
-    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-    .toolbar .mini{padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);font-weight:700;cursor:pointer}
-    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px}
-    table{width:100%;border-collapse:collapse;min-width:1100px}
-    th,td{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.08);font-size:14px;text-align:left;vertical-align:top}
-    th{position:sticky;top:0;background:#0b1220;color:#cbd5e1;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
-    tr:hover td{background:rgba(255,255,255,.02)}
-    .badge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid transparent;white-space:nowrap}
-    .status-disponivel,.status-pronta,.status-concluido{background:rgba(34,197,94,.12);color:#86efac;border-color:rgba(34,197,94,.22)}
-    .status-reservada,.status-aberto,.status-aguardando{background:rgba(245,158,11,.12);color:#fcd34d;border-color:rgba(245,158,11,.22)}
-    .status-usada,.status-patio,.status-engatada{background:rgba(59,130,246,.12);color:#93c5fd;border-color:rgba(59,130,246,.22)}
-    .status-cancelada,.status-cancelado{background:rgba(239,68,68,.12);color:#fca5a5;border-color:rgba(239,68,68,.22)}
-    .status-fora_operacao{background:rgba(148,163,184,.16);color:#cbd5e1;border-color:rgba(148,163,184,.28)}
-    .status-descarregado{background:rgba(245,158,11,.14);color:#fcd34d;border-color:rgba(245,158,11,.24)}
-    .status-doca,.status-carregamento,.status-descarga{background:rgba(139,92,246,.14);color:#c4b5fd;border-color:rgba(139,92,246,.25)}
-    .status-finalizada{background:rgba(34,197,94,.16);color:#86efac;border-color:rgba(34,197,94,.25)}
-    .row-actions,.quick-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
-    .row-actions button,.quick-actions button{border:none;cursor:pointer;padding:8px 10px;border-radius:10px;font-size:12px;font-weight:800;color:white}
-    .action-stack{display:flex;flex-wrap:wrap;gap:6px;min-width:250px;max-width:320px;align-items:flex-start}
-    .action-stack button{flex:0 0 auto;min-width:92px;white-space:nowrap;padding:7px 10px;border-radius:999px;font-size:10.5px;line-height:1;font-weight:800;letter-spacing:.01em;box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
-    .action-stack button:hover{filter:brightness(1.06);transform:translateY(-1px)}
-    .action-stack button:active{transform:scale(.98)}
-    .action-grid-compact{display:grid;grid-template-columns:repeat(4,minmax(96px,1fr));gap:6px;min-width:420px;max-width:560px}
-    .action-grid-compact button{width:100%;padding:7px 8px;border:none;border-radius:10px;font-size:10.5px;font-weight:800;line-height:1.05;cursor:pointer;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
-    .action-grid-compact button:hover{filter:brightness(1.06);transform:translateY(-1px)}
-    .action-grid-compact button:active{transform:scale(.98)}
-    @media (max-width:1200px){.action-grid-compact{grid-template-columns:repeat(3,minmax(88px,1fr));min-width:300px;max-width:390px}}
-    @media (max-width:760px){.action-grid-compact{grid-template-columns:repeat(2,minmax(88px,1fr));min-width:220px;max-width:260px}}
-    .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,.72);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
-    .modal-backdrop.show{display:flex}
-    .modal-card{width:min(560px,100%);background:rgba(15,23,42,.98);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:16px 20px}
-    .a1{background:#334155}.a2{background:#2563eb}.a3{background:#dc2626}.a4{background:#16a34a}.a5{background:#7c3aed}.a6{background:#475569}
-    .empty{padding:28px;text-align:center;color:var(--muted)}
-    .sticky{position:sticky;top:10px}
-    .footer-note{margin-top:10px;font-size:12px;color:var(--muted)}
-    .sync-badge{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04);font-size:12px;font-weight:800;color:#cbd5e1}
-    .sync-dot{width:9px;height:9px;border-radius:999px;background:#64748b}
-    .sync-badge.ok .sync-dot{background:var(--green);box-shadow:0 0 10px rgba(34,197,94,.45)}
-    .sync-badge.warn .sync-dot{background:var(--yellow);box-shadow:0 0 10px rgba(245,158,11,.45)}
-    .sync-badge.err .sync-dot{background:var(--red);box-shadow:0 0 10px rgba(239,68,68,.45)}
-    .action-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
-    .action-btn{border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);padding:12px;border-radius:14px;cursor:pointer;text-align:left;font-weight:800}
-    .action-btn small{display:block;color:var(--muted);font-size:11px;font-weight:600;margin-top:4px}
-    .action-btn.active{background:linear-gradient(135deg,rgba(34,197,94,.22),rgba(59,130,246,.14));border-color:rgba(34,197,94,.35);box-shadow:0 0 0 2px rgba(34,197,94,.12) inset}
-    .status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
-    .status-btn{border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);padding:12px;border-radius:14px;cursor:pointer;text-align:left;font-weight:800}
-    .status-btn small{display:block;color:var(--muted);font-size:11px;font-weight:600;margin-top:4px}
-    .status-btn.active{background:linear-gradient(135deg,rgba(34,197,94,.22),rgba(59,130,246,.14));border-color:rgba(34,197,94,.35);box-shadow:0 0 0 2px rgba(34,197,94,.12) inset}
-    .hidden-block{display:none}
-    .mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:8px}
-    .mini-card{padding:12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
-    .mini-card .k{font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
-    .mini-card .v{font-size:18px;font-weight:800}
-    @media (max-width:1200px){.stats{grid-template-columns:repeat(3,1fr)}.layout{grid-template-columns:1fr}.sticky{position:static}}
-    @media (max-width:760px){.wrap{padding:14px}.row-2,.row-3,.row-4,.actions,.action-grid,.mini-grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.tab{flex:1}.toolbar .mini,.actions .btn{width:100%}}
-    @media (max-width:520px){.stats{grid-template-columns:1fr}.brand{width:100%;justify-content:center}.tabs{width:100%}.tab{width:100%}}
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Direcionamentos - ATO | Painel Heineken</title>
+<style>
+  :root{
+    --green-950:#001407;
+    --green-900:#00240f;
+    --green-850:#003719;
+    --green-800:#004b1c;
+    --green-700:#086b20;
+    --green-600:#168821;
+    --green-500:#35a51f;
+    --green-300:#86df43;
+    --line:rgba(172,255,132,.38);
+    --line-soft:rgba(255,255,255,.16);
+    --white:#f7fff4;
+    --muted:#d8f4cf;
+    --red:#ff2020;
+    --blue:#2fa8ff;
+    --orange:#ff8c1e;
+    --yellow:#ffc400;
+    --yellow-2:#ffe079;
+    --dark:#071507;
+    --shadow:0 18px 42px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    background:#001607;
+    color:var(--white);
+    font-family:Arial, Helvetica, sans-serif;
+    overflow:hidden;
+  }
+  body{
+    background:
+      radial-gradient(circle at 8% 82%, rgba(60,255,82,.22), transparent 18%),
+      radial-gradient(circle at 78% 9%, rgba(47,255,78,.28), transparent 20%),
+      linear-gradient(135deg, #001306 0%, #003116 47%, #001205 100%);
+  }
+  body::after{
+    content:"";
+    position:fixed;
+    inset:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.032) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size:42px 42px;
+    opacity:.55;
+    pointer-events:none;
+    mask-image:linear-gradient(90deg, transparent 0%, #000 15%, #000 84%, transparent 100%);
+  }
+  .painel{
+    width:100vw;
+    height:100vh;
+    position:relative;
+    overflow:hidden;
+    padding:8px 14px 14px;
+    border:2px solid rgba(113,255,90,.48);
+    border-radius:17px;
+    background:
+      radial-gradient(circle at 14% 30%, rgba(66,255,82,.12), transparent 22%),
+      linear-gradient(145deg, rgba(0,58,25,.75), rgba(0,20,9,.96));
+    box-shadow:inset 0 0 45px rgba(70,255,78,.18);
+  }
+  .painel::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:
+      radial-gradient(circle at 91% 6%, rgba(111,255,90,.5) 0 2px, transparent 3px),
+      radial-gradient(circle at 93% 6%, rgba(111,255,90,.45) 0 2px, transparent 3px),
+      radial-gradient(circle at 95% 6%, rgba(111,255,90,.4) 0 2px, transparent 3px),
+      radial-gradient(circle at 91% 9%, rgba(111,255,90,.35) 0 2px, transparent 3px),
+      radial-gradient(circle at 93% 9%, rgba(111,255,90,.3) 0 2px, transparent 3px),
+      radial-gradient(circle at 95% 9%, rgba(111,255,90,.25) 0 2px, transparent 3px);
+    pointer-events:none;
+  }
+  .topo{
+    height:86px;
+    display:grid;
+    grid-template-columns:260px 1fr 170px;
+    align-items:center;
+    gap:18px;
+    position:relative;
+    z-index:2;
+    overflow:hidden;
+    border:0;
+    border-radius:14px 14px 0 0;
+    background:
+      radial-gradient(circle at 84% 70%, rgba(81,255,93,.42) 0 2px, transparent 3px),
+      radial-gradient(circle at 72% 85%, rgba(81,255,93,.34), transparent 16%),
+      linear-gradient(90deg, #03210d 0%, #043919 19%, #00240f 37%, #001507 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(151,255,123,.28),
+      inset 0 -2px 0 rgba(31,201,48,.65),
+      0 10px 28px rgba(0,0,0,.25);
+  }
+  .topo::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:
+      linear-gradient(90deg, rgba(4,98,35,.25) 0%, transparent 24%, transparent 100%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,.045) 0 2px, transparent 2px 8px);
+    opacity:.36;
+    pointer-events:none;
+  }
+  .topo::after{
+    content:"";
+    position:absolute;
+    right:28px;
+    top:10px;
+    width:150px;
+    height:60px;
+    background:
+      radial-gradient(circle, rgba(55,255,65,.72) 0 2px, transparent 2.5px);
+    background-size:12px 12px;
+    opacity:.45;
+    mask-image:linear-gradient(90deg, transparent 0%, #000 20%, #000 100%);
+    pointer-events:none;
+  }
+  .brand{
+    height:86px;
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    padding:7px 22px 8px 28px;
+    border:0;
+    border-radius:14px 0 26px 0;
+    background:
+      radial-gradient(circle at 80% 28%, rgba(75,255,89,.21), transparent 34%),
+      linear-gradient(125deg, #064519 0%, #02260f 55%, #001607 100%);
+    box-shadow:inset -1px 0 0 rgba(105,255,86,.34);
+    z-index:1;
+  }
+  .brand::before{
+    content:"";
+    position:absolute;
+    right:28px;
+    top:-23px;
+    width:15px;
+    height:132px;
+    transform:skewX(-29deg);
+    background:linear-gradient(180deg,#ff3028,#ba0000);
+    box-shadow:-9px 0 0 rgba(255,255,255,.08), 0 0 14px rgba(255,0,0,.38);
+  }
+  .brand::after{
+    content:"";
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    height:2px;
+    background:linear-gradient(90deg, rgba(63,255,71,.92), rgba(63,255,71,.32), transparent);
+  }
+  .brand img{display:none!important;}
+  .brand-logo{
+    position:relative;
+    z-index:2;
+    display:grid;
+    grid-template-columns:44px 1fr;
+    grid-template-rows:auto auto;
+    align-items:center;
+    column-gap:8px;
+    line-height:1;
+    color:#fff;
+  }
+  .brand-star{
+    grid-row:1 / span 2;
+    color:#e10012;
+    font-size:42px;
+    line-height:.8;
+    text-align:center;
+    text-shadow:
+      -1px -1px 0 #fff,
+       1px -1px 0 #fff,
+      -1px  1px 0 #fff,
+       1px  1px 0 #fff,
+       0 0 12px rgba(255,0,0,.35);
+  }
+  .brand-name{
+    font-family:Georgia, "Times New Roman", serif;
+    font-size:29px;
+    font-weight:900;
+    letter-spacing:-1px;
+    text-shadow:0 2px 4px rgba(0,0,0,.48);
+  }
+  .brand-slogan{
+    font-size:13px;
+    font-weight:800;
+    color:#eefbe9;
+    letter-spacing:.1px;
+    text-shadow:0 2px 3px rgba(0,0,0,.45);
+  }
+  h1{
+    position:relative;
+    z-index:1;
+    margin:0;
+    text-align:center;
+    font-size:52px;
+    line-height:1;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:#fff;
+    text-shadow:
+      0 3px 0 rgba(0,0,0,.48),
+      0 0 18px rgba(126,255,99,.20);
+    white-space:nowrap;
+  }
+  .title-glow{
+    position:absolute;
+    left:275px;
+    right:16px;
+    bottom:8px;
+    height:2px;
+    background:linear-gradient(90deg, rgba(50,255,60,.58), rgba(50,255,60,.10) 46%, rgba(96,255,92,.85) 74%, rgba(50,255,60,.20));
+    box-shadow:0 0 14px rgba(55,255,61,.72);
+    z-index:1;
+    pointer-events:none;
+  }
+  .actions{
+    position:relative;
+    z-index:3;
+    justify-self:end;
+    display:flex;
+    gap:6px;
+    align-items:center;
+    padding:5px;
+    border-radius:12px;
+    background:rgba(0,0,0,.16);
+    border:1px solid rgba(139,255,104,.16);
+    opacity:.22;
+    transition:.2s ease;
+  }
+  .actions:hover,.actions:focus-within{opacity:1;background:rgba(0,0,0,.28)}
+  .actions button{
+    border:0;
+    border-radius:8px;
+    padding:7px 9px;
+    font-size:12px;
+    font-weight:1000;
+    cursor:pointer;
+    color:#05250a;
+    background:linear-gradient(#e7ffd4,#8dde4f);
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.18);
+  }
+  .actions .undo{background:linear-gradient(#fff0b4,#ffc400);color:#2d2100}
+
+  .screen-note{display:none!important;}
+  .screen-note-old{
+    position:absolute;
+    right:28px;
+    top:112px;
+    z-index:4;
+    color:rgba(220,255,209,.42);
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:.9px;
+    text-transform:uppercase;
+  }
+  .main{
+    position:absolute;
+    left:14px;
+    right:14px;
+    top:98px;
+    bottom:148px;
+    display:grid;
+    grid-template-columns:38.5% 1fr;
+    gap:20px;
+    z-index:2;
+  }
+  .left-art{
+    border-radius:22px;
+    border:1px solid rgba(122,255,99,.20);
+    position:relative;
+    overflow:hidden;
+    background:
+      radial-gradient(circle at 25% 79%, rgba(76,255,84,.18), transparent 19%),
+      linear-gradient(145deg, rgba(5,57,26,.52), rgba(0,22,9,.16));
+  }
+  .left-art::before{
+    content:"☆";
+    position:absolute;
+    left:50%;
+    top:45%;
+    transform:translate(-50%,-50%);
+    width:390px;
+    height:390px;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
+    border:3px solid rgba(187,255,159,.075);
+    color:rgba(190,255,159,.11);
+    font-size:185px;
+    font-weight:1000;
+    text-shadow:0 0 28px rgba(84,255,84,.12);
+  }
+  .left-art::after{
+    content:"QUALITY  •  PASSION  •  PEOPLE";
+    position:absolute;
+    left:50%;
+    top:calc(45% - 155px);
+    transform:translateX(-50%);
+    color:rgba(200,255,177,.14);
+    font-size:18px;
+    font-weight:1000;
+    letter-spacing:8px;
+    white-space:nowrap;
+  }
+  .left-direction{
+    position:absolute;
+    left:34px;
+    right:34px;
+    top:50%;
+    transform:translateY(-50%);
+    padding:20px 22px 18px;
+    border-radius:24px;
+    border:2px solid rgba(144,255,115,.48);
+    background:linear-gradient(180deg, rgba(0,23,10,.82), rgba(0,15,7,.92));
+    box-shadow:0 14px 32px rgba(0,0,0,.36), inset 0 0 26px rgba(84,255,94,.10);
+  }
+  .left-direction::before{
+    content:"";
+    position:absolute;
+    left:0;
+    right:0;
+    top:58px;
+    height:2px;
+    background:linear-gradient(90deg, transparent, rgba(130,255,102,.85), transparent);
+    box-shadow:0 0 14px rgba(93,255,73,.5);
+  }
+  .left-dir-title{
+    text-align:center;
+    font-size:22px;
+    font-weight:1000;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:#fff;
+    margin-bottom:18px;
+    text-shadow:0 2px 6px rgba(0,0,0,.5);
+  }
+  .left-dir-body{display:grid;grid-template-columns:140px 1fr;gap:18px;align-items:center}
+  .left-dir-icon{
+    height:170px;
+    display:grid;
+    place-items:center;
+    border-right:2px solid rgba(132,255,112,.28);
+    padding-right:18px;
+  }
+  .left-dir-icon svg{width:110px;height:110px;stroke:#88ff54;fill:none;stroke-width:2.4;filter:drop-shadow(0 0 10px rgba(118,255,84,.22))}
+  .left-dir-content{text-align:center}
+  .left-dir-text{
+    font-size:22px;
+    line-height:1.12;
+    font-weight:1000;
+    text-transform:uppercase;
+    margin-bottom:12px;
+    text-shadow:0 2px 4px rgba(0,0,0,.45);
+  }
+  .left-dir-vazios{
+    display:inline-block;
+    margin:0 auto 12px;
+    padding:10px 24px;
+    border-radius:18px;
+    background:linear-gradient(180deg,#ff2121,#c80000);
+    color:#fff;
+    font-size:42px;
+    line-height:1;
+    font-weight:1000;
+    box-shadow:0 10px 20px rgba(0,0,0,.25), inset 0 0 0 2px rgba(255,255,255,.18);
+  }
+  .left-dir-sub{
+    color:#90f25a;
+    font-size:20px;
+    font-weight:1000;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    margin-bottom:12px;
+  }
+  .left-dir-dest.clickable-select{
+    width:100%;
+    max-width:330px;
+    margin:0 auto;
+    padding:12px 42px 12px 16px;
+    font-size:36px;
+    font-weight:1000;
+    text-align:center;
+    text-align-last:center;
+    border-radius:18px;
+    border:2px solid rgba(255,225,66,.58);
+    background-image:linear-gradient(180deg,#ffd629,#ffc400), url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2220%22 height=%2220%22 viewBox=%220 0 20 20%22%3E%3Cpath fill=%22%230f1807%22 d=%22M5 7l5 6 5-6z%22/%3E%3C/svg%3E");
+    background-repeat:no-repeat,no-repeat;
+    background-position:center, right 14px center;
+    color:#0f1807 !important;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18), 0 6px 14px rgba(0,0,0,.25);
+    appearance:none;
+    -webkit-appearance:none;
+  }
+  .cards{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-width:0;
+  }
+  .card{
+    display:grid;
+    grid-template-columns:92px 1fr;
+    overflow:hidden;
+    border-radius:13px;
+    border:1px solid rgba(155,255,98,.56);
+    background:linear-gradient(180deg, rgba(4,43,20,.95), rgba(2,25,12,.96));
+    box-shadow:0 8px 18px rgba(0,0,0,.23), inset 0 0 18px rgba(65,255,71,.07);
+  }
+  .icon{
+    display:grid;
+    place-items:center;
+    border-right:1px solid rgba(155,255,122,.35);
+    background:linear-gradient(180deg, rgba(48,157,29,.78), rgba(0,70,27,.40));
+  }
+  .icon svg{width:50px;height:50px;stroke:#fff;fill:none;stroke-width:2.7;filter:drop-shadow(0 0 8px rgba(255,255,255,.13))}
+  .icon.fill svg{fill:#fff;stroke:none}
+  .icon.amber{box-shadow:inset 0 -12px 0 var(--orange)}
+  table{width:100%;height:100%;border-collapse:collapse;table-layout:fixed}
+  th,td{
+    border-right:1px solid rgba(255,255,255,.12);
+    border-bottom:1px solid rgba(255,255,255,.17);
+    padding:5px 9px;
+    line-height:1.05;
+  }
+  tr:last-child td{border-bottom:0}
+  th{
+    background:linear-gradient(180deg,#39a921,#176c10);
+    color:#fff;
+    text-align:left;
+    text-transform:uppercase;
+    font-size:19px;
+    font-weight:1000;
+    letter-spacing:.2px;
+    text-shadow:0 2px 3px rgba(0,0,0,.35);
+  }
+  th.onde,td.onde{text-align:center;width:27%}
+  td{
+    color:#fff;
+    font-size:17px;
+    font-weight:1000;
+    background:rgba(0,0,0,.14);
+    text-shadow:0 1px 2px rgba(0,0,0,.44);
+  }
+  .compact th{font-size:18px;padding:5px 9px}
+  .compact td{font-size:16px;padding:4px 9px}
+  .sku-table th{text-align:center}
+  .sku-table td{text-align:center;font-size:17px;padding:4px 8px}
+  .sku-table td:first-child{
+    width:17%;
+    background:linear-gradient(90deg,rgba(52,137,30,.58),rgba(31,106,17,.45));
+  }
+  .sku-table td:nth-child(2){text-align:left}
+  .clickable-select{
+    width:100%;
+    min-height:24px;
+    display:block;
+    appearance:none;
+    -webkit-appearance:none;
+    border:0;
+    outline:0;
+    border-radius:7px;
+    background:transparent;
+    color:inherit;
+    font:inherit;
+    font-weight:1000;
+    line-height:1.05;
+    padding:2px 17px 2px 4px;
+    cursor:pointer;
+    text-shadow:inherit;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .clickable-select:hover,.clickable-select:focus{
+    background:rgba(255,255,255,.08);
+    box-shadow:inset 0 0 0 1px rgba(206,255,175,.34);
+  }
+  .left-dir-dest.clickable-select:hover,.left-dir-dest.clickable-select:focus{
+    background-image:linear-gradient(180deg,#ffe05b,#ffc400), url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2220%22 height=%2220%22 viewBox=%220 0 20 20%22%3E%3Cpath fill=%22%230f1807%22 d=%22M5 7l5 6 5-6z%22/%3E%3C/svg%3E");
+    background-repeat:no-repeat,no-repeat;
+    background-position:center, right 14px center;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18), 0 6px 14px rgba(0,0,0,.25);
+  }
+  .clickable-select option{background:#052b14;color:#fff;font-weight:900}
+  .dest-select{text-align:center;text-align-last:center}
+  .dest-critical{color:var(--red)!important}
+  .dest-green{color:#25e76b!important}
+  .dest-blue{color:var(--blue)!important}
+  .tipo-green{color:#67e83d!important}
+  .tipo-orange{color:var(--orange)!important}
+  .line-select{text-align:center;text-align-last:center;color:#dfffbd}
+  .sku-select{font-size:15px;color:#fff}
+  .bottom{
+    position:absolute;
+    left:14px;
+    right:14px;
+    bottom:14px;
+    height:78px;
+    z-index:3;
+    display:grid;
+    grid-template-columns:210px 1fr;
+    border-radius:16px;
+    overflow:hidden;
+    border:1px solid rgba(255,230,80,.94);
+    box-shadow:0 -4px 20px rgba(255,204,0,.14), 0 10px 24px rgba(0,0,0,.30);
+  }
+  .safety{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    background:
+      radial-gradient(circle at 25% 25%, rgba(94,255,78,.36), transparent 34%),
+      linear-gradient(135deg,#004818,#001909);
+    border-right:4px solid #d00000;
+  }
+  .shield{
+    width:52px;
+    height:52px;
+    border:4px solid #fff;
+    border-radius:18px 18px 22px 22px;
+    display:grid;
+    place-items:center;
+    font-size:34px;
+    font-weight:1000;
+    color:#fff;
+    background:linear-gradient(#13932e,#034617);
+    box-shadow:inset 0 0 0 7px rgba(183,255,168,.22), 0 0 18px rgba(99,255,93,.31);
+  }
+  .safety-title{font-weight:1000;line-height:.92;font-size:24px;color:#fff;text-shadow:0 2px 3px rgba(0,0,0,.45)}
+  .safety-title span{display:block;color:#96f23f;font-size:29px;font-style:italic}
+  .alerta{
+    position:relative;
+    display:grid;
+    grid-template-rows:22px 1fr;
+    padding:6px 16px 8px;
+    color:#091107;
+    background:
+      linear-gradient(90deg, rgba(255,214,0,.99), rgba(255,194,0,.99)),
+      repeating-linear-gradient(45deg, rgba(0,0,0,.10) 0 3px, transparent 3px 9px);
+  }
+  .alerta::after{
+    content:"";
+    position:absolute;
+    right:0;
+    top:0;
+    bottom:0;
+    width:70px;
+    background:repeating-linear-gradient(135deg, rgba(0,0,0,.72) 0 7px, transparent 7px 14px);
+    opacity:.58;
+  }
+  .atencao{
+    text-align:center;
+    color:#d40000;
+    font-size:21px;
+    font-weight:1000;
+    line-height:1;
+    text-transform:uppercase;
+    text-shadow:0 2px 0 rgba(255,255,255,.38);
+  }
+  .rpm{
+    display:none;
+    font-weight:1000;
+    white-space:nowrap;
+  }
+  .pill{background:#d60000;color:#fff;padding:2px 9px;border-radius:9px;box-shadow:0 2px 0 rgba(0,0,0,.22)}
+  .alert-dest{
+    width:145px;
+    color:#0c1908!important;
+    text-align:center;
+    text-align-last:center;
+    border:1px solid rgba(0,0,0,.18);
+    background:rgba(255,255,255,.22);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+  }
+  .geral{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    font-size:16px;
+    font-weight:1000;
+    text-align:center;
+  }
+  .warn-icon{font-size:26px}
+  .toast{
+    position:fixed;
+    left:50%;
+    top:18px;
+    transform:translateX(-50%);
+    z-index:99;
+    background:#eaffd8;
+    color:#05250d;
+    border:1px solid #7aff58;
+    border-radius:12px;
+    padding:10px 18px;
+    font-weight:1000;
+    box-shadow:0 12px 30px rgba(0,0,0,.35);
+    opacity:0;
+    transition:.22s;
+    pointer-events:none;
+  }
+  @media(max-width:1150px){
+    .topo{grid-template-columns:220px 1fr 140px;height:82px}
+    .brand{height:82px;padding-left:18px}
+    .brand-star{font-size:36px}
+    .brand-name{font-size:24px}
+    .brand-slogan{font-size:11px}
+    h1{font-size:39px}
+    .title-glow{left:235px}
+    .main{grid-template-columns:33% 1fr;gap:14px;top:94px}
+    .card{grid-template-columns:76px 1fr}
+    .icon svg{width:42px;height:42px}
+    th{font-size:15px}
+    td{font-size:13px}
+    .compact th,.compact td{font-size:13px}
+    .sku-table td{font-size:13px}
+    .sku-select{font-size:12px}
+    .bottom{grid-template-columns:170px 1fr}
+    .safety-title{font-size:18px}
+    .safety-title span{font-size:22px}
+    .shield{width:42px;height:42px;font-size:26px}
+    .geral{font-size:15px}
+    .actions{transform:scale(.86);transform-origin:right center}
+    .left-direction{left:18px;right:18px;padding:16px}
+    .left-dir-body{grid-template-columns:1fr}
+    .left-dir-icon{display:none}
+    .left-dir-vazios{font-size:32px}
+    .left-dir-dest.clickable-select{font-size:24px}
+  }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="topbar">
-      <div class="brand"><span class="brand-dot"></span><span>Controle de DTs + Drop & Hook</span></div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div class="sync-badge warn" id="syncBadge"><span class="sync-dot"></span><span id="syncText">Conectando</span></div>
-        <div class="tabs">
-          <button class="tab active" data-tab="cadastro">Cadastro</button>
-          <button class="tab" data-tab="registro">Registro</button>
-          <button class="tab" data-tab="drophook">Drop & Hook</button>
-          <button class="tab" data-tab="painel">Painel</button>
-        </div>
+<main class="painel" aria-label="Painel visual de direcionamentos ATO com listas de escolha">
+  <header class="topo">
+    <div class="brand" aria-label="Tema Heineken">
+      <div class="brand-logo" aria-hidden="true">
+        <div class="brand-star">★</div>
+        <div class="brand-name">Heineken</div>
+        <div class="brand-slogan">open your world</div>
       </div>
     </div>
-
-    <section class="stats" id="stats"></section>
-
-    <section class="screen active" id="screen-cadastro">
-      <div class="layout">
-        <aside class="sticky">
-          <div class="card panel">
-            <div class="title-row"><h2>Cadastro de DTs</h2><span class="hint">controle</span></div>
-            <div class="field">
-              <label for="singleDt">Uma DT</label>
-              <input id="singleDt" type="text" placeholder="Ex.: 123456789" -->
-            </div>
-            <div class="field">
-              <label for="singleSku">SKU</label>
-              <input id="singleSku" type="text" placeholder="Ex.: SKU 123 / Produto X" -->
-            </div>
-            <div class="actions">
-              <button class="btn green" id="addSingleDtBtn">Adicionar</button>
-              <button class="btn ghost" id="clearSingleDtBtn">Limpar</button>
-            </div>
-
-            <div class="field" style="margin-top:12px">
-              <label for="bulkDts">Em lote</label>
-              <textarea id="bulkDts" placeholder="Cole uma DT por linha, vírgula ou espaço"></textarea>
-            </div>
-            <div class="field">
-              <label for="bulkSku">SKU do lote</label>
-              <input id="bulkSku" type="text" placeholder="Mesmo SKU para todas as DTs do lote" -->
-            </div>
-            <div class="actions">
-              <button class="btn blue" id="addBulkDtBtn">Adicionar lote</button>
-              <button class="btn ghost" id="clearBulkBtn">Limpar</button>
-            </div>
-
-            <div class="field" style="margin-top:12px">
-              <label for="deleteDtInput">Excluir DT</label>
-              <input id="deleteDtInput" type="text" placeholder="Digite a DT para excluir" />
-            </div>
-            <div class="actions">
-              <button class="btn red" id="deleteDtCadastroBtn">Excluir DT</button>
-              <button class="btn ghost" id="clearDeleteDtBtn">Limpar</button>
-            </div>
-
-            <div class="section-gap"></div>
-            <div class="title-row"><h2 style="font-size:22px">Cadastro de Carretas</h2><span class="hint">drop &amp; hook</span></div>
-            <div class="field" style="margin-top:4px">
-              <label for="dhSingleCarreta">Carreta Drop & Hook</label>
-              <input id="dhSingleCarreta" type="text" placeholder="Ex.: AAA1234" maxlength="12" -->
-            </div>
-            <div class="row-2">
-              <div class="field">
-                <label for="dhSingleDt">DT da carreta</label>
-                <input id="dhSingleDt" type="text" placeholder="Ex.: 123456789" -->
-              </div>
-              <div class="field">
-                <label for="dhSingleTipo">Tipo</label>
-                <select id="dhSingleTipo">
-                  <option value="Sider">Sider</option>
-                  <option value="Baú">Baú</option>
-                  <option value="Carga seca">Carga seca</option>
-                  <option value="Container">Container</option>
-                  <option value="Asa Delta">Asa Delta</option>
-                  <option value="Outro">Outro</option>
-                </select>
-              </div>
-            </div>
-            <div class="field">
-              <label for="dhSingleTransportadora">Transportadora</label>
-              <input id="dhSingleTransportadora" type="text" value="RITMO" placeholder="Transportadora" -->
-            </div>
-            <div class="actions">
-              <button class="btn violet" id="addDhUnitBtn">Cadastrar carreta</button>
-              <button class="btn ghost" id="clearDhUnitBtn">Limpar</button>
-            </div>
-
-            <div class="field" style="margin-top:12px">
-              <label for="deleteCarretaInput">Excluir carreta</label>
-              <input id="deleteCarretaInput" type="text" placeholder="Digite a placa da carreta" />
-            </div>
-            <div class="actions">
-              <button class="btn red" id="deleteCarretaCadastroBtn">Excluir carreta</button>
-              <button class="btn ghost" id="clearDeleteCarretaBtn">Limpar</button>
-            </div>
-
-            <div class="section-gap"></div>
-            <div class="actions">
-              <button class="btn ghost" id="exportDtCsvBtn">DTs CSV</button>
-              <button class="btn ghost" id="exportDhCsvBtn">Drop & Hook CSV</button>
-              <button class="btn ghost" id="backupJsonBtn">Backup JSON</button>
-              <button class="btn ghost" id="exportHistoryCsvBtn">Histórico CSV</button>
-            </div>
-            <div class="footer-note">Base compartilhada no Firebase.</div>
-          </div>
-        </aside>
-
-        <main>
-          <div class="card panel">
-            <div class="title-row"><h2>Fila de DTs</h2><span class="hint">controle</span></div>
-            <div class="row-4">
-              <div class="field"><label for="searchDt">Buscar</label><input id="searchDt" type="text" placeholder="DT ou SKU" --></div>
-              <div class="field"><label for="statusFilter">Status</label>
-                <select id="statusFilter">
-                  <option value="todos">Todos</option>
-                  <option value="disponivel">Disponível</option>
-                  <option value="reservada">Reservada</option>
-                  <option value="usada">Registrada</option>
-                  <option value="cancelada">Cancelada</option>
-                  <option value="fora_operacao">Fora de operação</option>
-                </select>
-              </div>
-              <div class="field"><label for="sortMode">Ordem</label>
-                <select id="sortMode">
-                  <option value="recentes">Mais recentes</option>
-                  <option value="antigas">Mais antigas</option>
-                  <option value="dt_asc">DT crescente</option>
-                  <option value="dt_desc">DT decrescente</option>
-                </select>
-              </div>
-              <div class="field"><label for="queueInfo">Info</label><input id="queueInfo" value="Cadastro original mantido" disabled --></div>
-            </div>
-            <div class="toolbar">
-              <button class="mini" id="clearUsedBtn">Excluir registradas</button>
-              <button class="mini" id="clearCancelledBtn">Excluir canceladas</button>
-              <button class="mini" id="clearAllBtn">Limpar tudo</button>
-            </div>
-            <div class="table-wrap" id="dtTableWrap"></div>
-          </div>
-        </main>
-      </div>
-    </section>
-
-    <section class="screen" id="screen-registro">
-      <div class="layout">
-        <aside class="sticky">
-          <div class="card panel">
-            <div class="title-row"><h2>Registrar</h2><span class="hint">DT</span></div>
-            <div class="field">
-              <label for="dtMode">Usar DT</label>
-              <select id="dtMode">
-                <option value="auto">Próxima disponível</option>
-                <option value="manual">Escolher específica</option>
-              </select>
-            </div>
-            <div class="row-2" id="manualFilterWrap" style="display:none">
-              <div class="field">
-                <label for="manualSelectMode">Escolher específica</label>
-                <select id="manualSelectMode">
-                  <option value="all">Todas disponíveis</option>
-                  <option value="sku">Por SKU</option>
-                </select>
-              </div>
-              <div class="field" id="manualSkuField" style="display:none">
-                <label for="manualSkuSelect">SKU</label>
-                <select id="manualSkuSelect"></select>
-              </div>
-            </div>
-            <div class="field" id="manualDtField" style="display:none">
-              <label for="manualDtSelect">DT específica</label>
-              <select id="manualDtSelect"></select>
-            </div>
-
-            <div class="row-2">
-              <div class="field"><label for="motorista">Motorista</label><input id="motorista" type="text" placeholder="Nome" --></div>
-              <div class="field"><label for="transportadora">Transportadora</label><input id="transportadora" type="text" value="RITMO" placeholder="Transportadora" --></div>
-            </div>
-            <div class="row-2">
-              <div class="field"><label for="placaCavalo">Placa cavalo</label><input id="placaCavalo" type="text" placeholder="ABC1D23" maxlength="8" --></div>
-              <div class="field"><label for="placaCarreta">Placa carreta</label><input id="placaCarreta" type="text" placeholder="ABC1D23" maxlength="8" --></div>
-            </div>
-            <div class="row-2">
-              <div class="field"><label for="origem">Origem</label><select id="origem"><option value="">Selecione</option><option value="Fábrica">Fábrica</option><option value="Heilo">Heilo</option></select></div>
-              <div class="field"><label for="destino">Destino</label><select id="destino"><option value="">Selecione</option><option value="Fábrica">Fábrica</option><option value="Heilo">Heilo</option></select></div>
-            </div>
-            <div class="field"><label for="observacao">Observação</label><textarea id="observacao" placeholder="Informações adicionais"></textarea></div>
-            <div class="actions">
-              <button class="btn green" id="registerBaldeioBtn">Registrar</button>
-              <button class="btn yellow" id="reserveNextBtn">Reservar</button>
-            </div>
-          </div>
-        </aside>
-        <main>
-          <div class="card panel">
-            <div class="title-row"><h2>Histórico de DTs</h2><span class="hint">operações</span></div>
-            <div class="row-3">
-              <div class="field"><label for="historySearch">Buscar</label><input id="historySearch" type="text" placeholder="DT, motorista, placa ou transportadora" --></div>
-              <div class="field"><label for="historyFlowFilter">Situação</label>
-                <select id="historyFlowFilter">
-                  <option value="todos">Todos</option>
-                  <option value="aberto">Em aberto</option>
-                  <option value="concluido">Concluído</option>
-                  <option value="cancelado">Cancelado</option>
-                </select>
-              </div>
-              <div class="field"><label for="historySort">Ordem</label>
-                <select id="historySort">
-                  <option value="recentes">Mais recentes</option>
-                  <option value="antigas">Mais antigas</option>
-                </select>
-              </div>
-            </div>
-            <div class="table-wrap" id="historyTableWrap"></div>
-          </div>
-        </main>
-      </div>
-    </section>
-
-    <section class="screen" id="screen-drophook">
-      
-      <div>
-        <main>
-          <div class="card panel">
-            <div class="title-row"><h2>Controle da operação</h2><span class="hint">controle rápido completo</span></div>
-            <div class="row-4">
-              <div class="field"><label for="opSearch">Buscar</label><input id="opSearch" type="text" placeholder="Carreta, DT, motorista, cavalo, transportadora, SKU" --></div>
-              <div class="field"><label for="opStatusFilter">Status</label>
-                <select id="opStatusFilter">
-                  <option value="todos">Todos</option>
-                  <option value="disponivel">Disponível</option>
-                  <option value="patio_carregada">Carreta Carregada aguardando</option>
-                  <option value="descarga">Em descarga</option>
-                  <option value="carregamento">Em carregamento</option>
-                  <option value="finalizada">Finalizado</option>
-                  <option value="patio_vazia">Carreta Vazia Aguardando</option>
-                  <option value="engatada">Em rota</option>
-                  <option value="cancelada">Cancelada</option>
-                  <option value="fora_operacao">Fora de operação</option>
-                  <option value="aguardando">Desvio</option>
-                </select>
-              </div>
-              <div class="field"><label for="opLocationFilter">Local</label><select id="opLocationFilter"></select></div>
-              <div class="field"><label for="opSort">Ordem</label>
-                <select id="opSort">
-                  <option value="recentes">Mais recentes</option>
-                  <option value="antigas">Mais antigas</option>
-                  <option value="placa_asc">Carreta A-Z</option>
-                  <option value="placa_desc">Carreta Z-A</option>
-                </select>
-              </div>
-            </div>
-            <div class="table-wrap" id="operationTableWrap"></div>
-          </div>
-        </main>
-      </div>
-
-    </section>
-
-    <section class="screen" id="screen-painel">
-      <div class="card panel">
-        <div class="title-row"><h2>Painel</h2><span class="hint">visão completa com DT, SKU, tipo, cavalo, motorista e status</span></div>
-        <div class="row-4" style="margin-bottom:16px">
-          <div class="mini-card"><div class="k">Carretas no pátio</div><div class="v" id="panelPatio">0</div></div>
-          <div class="mini-card"><div class="k">Em doca</div><div class="v" id="panelDoca">0</div></div>
-          <div class="mini-card"><div class="k">Prontas</div><div class="v" id="panelPronta">0</div></div>
-          <div class="mini-card"><div class="k">Engatadas</div><div class="v" id="panelEngatada">0</div></div>
-        </div>
-
-        <div>
-          <div class="card panel" style="padding:0">
-            <div class="title-row" style="padding:16px 16px 0 16px"><h2 style="font-size:18px">Carretas em processo</h2><span class="hint">visão completa</span></div>
-            <div class="table-wrap" id="panelUnitsWrap"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-</div>
-
-
-    
-    
-    <div class="modal-backdrop" id="retornoOrigemModal">
-      <div class="modal-card">
-        <div class="title-row"><h2 style="font-size:20px">Retorno da carreta</h2><span class="hint">informe a origem atual</span></div>
-        <div class="field">
-          <label for="retornoUnitId">Carreta</label>
-          <input id="retornoUnitId" type="text" disabled -->
-          <input id="retornoTargetStatus" type="hidden" -->
-        </div>
-        <div class="field">
-          <label for="retornoOrigemSelect">Origem atual</label>
-          <select id="retornoOrigemSelect">
-            <option value="">Selecione</option>
-            <option value="Fábrica">Fábrica</option>
-            <option value="Heilo">Heilo</option>
-          </select>
-        </div>
-        <div class="actions">
-          <button class="btn violet" id="saveRetornoOrigemBtn">Salvar origem</button>
-          <button class="btn ghost" id="closeRetornoOrigemBtn">Fechar</button>
-        </div>
-      </div>
+    <h1>DIRECIONAMENTOS - ATO</h1>
+    <span class="title-glow" aria-hidden="true"></span>
+    <div class="actions" title="Funcionalidades de edição">
+      <button type="button" onclick="manualSave()">Salvar</button>
+      <button type="button" class="undo" onclick="undoChange()">Desfazer</button>
     </div>
+  </header>
 
-<div class="modal-backdrop" id="editRegistroModal">
-      <div class="modal-card">
-        <div class="title-row"><h2 style="font-size:20px">Editar registro</h2><span class="hint">histórico</span></div>
-        <div class="row-2">
-          <div class="field">
-            <label for="editRegistroDt">DT</label>
-            <input id="editRegistroDt" type="text" -->
+  <section class="main">
+    <aside class="left-art">
+      <div class="left-direction" aria-label="Direcionamento prioritário">
+        <div class="left-dir-title">Direcionamento prioritário</div>
+        <div class="left-dir-body">
+          <div class="left-dir-icon" aria-hidden="true">
+            <svg viewBox="0 0 64 64"><path d="M8 28l24-16 24 16"/><path d="M14 26v26h36V26"/><path d="M22 36h20"/><rect x="24" y="42" width="8" height="8" rx="1"/><rect x="36" y="42" width="8" height="8" rx="1"/></svg>
           </div>
-          <div class="field">
-            <label for="editRegistroSku">SKU</label>
-            <input id="editRegistroSku" type="text" -->
+          <div class="left-dir-content">
+            <div class="left-dir-text">Descarga de vasilhame âmbar</div>
+            <div class="left-dir-vazios">VAZIOS</div>
+            <div class="left-dir-sub">Direcionar</div>
+            <select id="squareDestino" class="clickable-select left-dir-dest" data-key="dest-square"><option>FÁBRICA</option><option>HEILO</option></select>
           </div>
-        </div>
-        <div class="row-2">
-          <div class="field">
-            <label for="editRegistroMotorista">Motorista</label>
-            <input id="editRegistroMotorista" type="text" -->
-          </div>
-          <div class="field">
-            <label for="editRegistroTransportadora">Transportadora</label>
-            <input id="editRegistroTransportadora" type="text" -->
-          </div>
-        </div>
-        <div class="row-2">
-          <div class="field">
-            <label for="editRegistroPlacaCavalo">Placa cavalo</label>
-            <input id="editRegistroPlacaCavalo" type="text" -->
-          </div>
-          <div class="field">
-            <label for="editRegistroPlacaCarreta">Placa carreta</label>
-            <input id="editRegistroPlacaCarreta" type="text" -->
-          </div>
-        </div>
-        <div class="row-2">
-          <div class="field">
-            <label for="editRegistroOrigem">Origem</label>
-            <select id="editRegistroOrigem"><option value="">Selecione</option><option value="Fábrica">Fábrica</option><option value="Heilo">Heilo</option></select>
-          </div>
-          <div class="field">
-            <label for="editRegistroDestino">Destino</label>
-            <select id="editRegistroDestino"><option value="">Selecione</option><option value="Fábrica">Fábrica</option><option value="Heilo">Heilo</option></select>
-          </div>
-        </div>
-        <div class="field">
-          <label for="editRegistroObs">Observação</label>
-          <textarea id="editRegistroObs"></textarea>
-        </div>
-        <input id="editRegistroId" type="hidden" -->
-        <div class="actions">
-          <button class="btn violet" id="saveEditRegistroBtn">Salvar</button>
-          <button class="btn ghost" id="closeEditRegistroBtn">Fechar</button>
         </div>
       </div>
-    </div>
-</div>
+    </aside>
 
-<div class="modal-backdrop" id="docaDtModal">
-      <div class="modal-card">
-        <div class="title-row"><h2 style="font-size:20px">Nova DT na carreta</h2><span class="hint">doca</span></div>
-        <div class="field">
-          <label for="docaUnitId">Carreta</label>
-          <input id="docaUnitId" type="text" disabled -->
+    <section class="cards">
+      <div class="card">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64"><rect x="7" y="17" width="32" height="25" rx="5"/><path d="M39 25h10l8 9v8H39z"/><circle cx="19" cy="48" r="5"/><circle cx="49" cy="48" r="5"/><path d="M7 48h7M24 48h20M54 48h4"/></svg>
         </div>
-        <div class="field">
-          <label for="docaActionType">Ação</label>
-          <input id="docaActionType" type="text" disabled -->
-        </div>
-        <div class="field">
-          <label for="docaDtSelect">Nova DT</label>
-          <select id="docaDtSelect"></select>
-        </div>
-        <div class="actions">
-          <button class="btn violet" id="saveDocaDtBtn">Salvar DT</button>
-          <button class="btn ghost" id="closeDocaDtBtn">Fechar</button>
-        </div>
+        <table>
+          <colgroup><col><col style="width:27%"></colgroup>
+          <thead><tr><th>Tipo descarga</th><th class="onde">Onde</th></tr></thead>
+          <tbody>
+            <tr><td>DESCARGA MERCADO C/ - 60 PLTS</td><td class="onde"><select class="clickable-select dest-select" data-key="dest-mercado-60" data-emphasis="critical"><option>FÁBRICA</option><option>HEILO</option></select></td></tr>
+            <tr><td>DESCARGA MERCADO C/ + 60 PLTS (Carga Completa)</td><td class="onde"><select class="clickable-select dest-select" data-key="dest-mercado-completa" data-emphasis="critical"><option>FÁBRICA</option><option>HEILO</option></select></td></tr>
+            <tr><td>DESCARGA PALETES NOVOS</td><td class="onde"><select class="clickable-select dest-select" data-key="dest-paletes" data-emphasis="critical"><option>FÁBRICA</option><option>HEILO</option></select></td></tr>
+          </tbody>
+        </table>
       </div>
-    </div>
 
-<div class="modal-backdrop" id="desvioModal">
-      <div class="modal-card">
-        <div class="title-row"><h2 style="font-size:20px">Abrir desvio</h2><span class="hint">observação operacional</span></div>
-        <div class="field">
-          <label for="desvioUnitId">Carreta</label>
-          <input id="desvioUnitId" type="text" disabled -->
+      <div class="card">
+        <div class="icon amber" aria-hidden="true">
+          <svg viewBox="0 0 64 64"><path d="M28 8h8v13l8 11v20a6 6 0 0 1-6 6H26a6 6 0 0 1-6-6V32l8-11z"/><path d="M27 8h10M24 37h16M24 52h16"/></svg>
         </div>
-        <div class="field">
-          <label for="desvioText">O que ocorreu</label>
-          <textarea id="desvioText" placeholder="Descreva o que aconteceu"></textarea>
-        </div>
-        <div class="actions">
-          <button class="btn violet" id="saveDesvioBtn">Salvar desvio</button>
-          <button class="btn ghost" id="closeDesvioBtn">Fechar</button>
-        </div>
-      </div>
-    </div>
-
-</div>
-
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-  import {
-    getFirestore,
-    collection,
-    doc,
-    setDoc,
-    updateDoc,
-    deleteDoc,
-    getDoc,
-    onSnapshot,
-    writeBatch,
-    runTransaction
-  } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyD7TvN58S0Z4CkMY6G0aRixvYk_xfYul20",
-    authDomain: "controle-11baa.firebaseapp.com",
-    projectId: "controle-11baa",
-    storageBucket: "controle-11baa.firebasestorage.app",
-    messagingSenderId: "351836968592",
-    appId: "1:351836968592:web:8af1d88483cf4ecf47aa15",
-    measurementId: "G-NFC2BWN7WN"
-  };
-
-  const DOCAS = ['Pátio', ...Array.from({length:12}, (_,i)=>`Doca ${i+1}`), 'Externo', 'Em rota'];
-  let app, auth, db;
-  let unsubDts = null, unsubHistory = null, unsubDhUnits = null, unsubDhMoves = null;
-  let isDtsLoaded = false, isHistoryLoaded = false, isDhUnitsLoaded = false, isDhMovesLoaded = false;
-  let dhMode = 'patio_carregada';
-  const state = { dts: [], history: [], dhUnits: [], dhMoves: [] };
-
-  const el = (id) => document.getElementById(id);
-  const qsa = (sel) => [...document.querySelectorAll(sel)];
-  const nowIso = () => new Date().toISOString();
-  const normalizeDt = (v) => String(v || '').replace(/\D/g,'');
-  const normalizePlate = (v) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,7);
-  const normalizeUnitId = (v) => String(v || '').toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,12);
-  const uid = (prefix='id') => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-  const escapeHtml = (text='') => String(text).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#39;");
-  const asDate = (v) => { const d = new Date(v); return Number.isNaN(d.getTime()) ? null : d; };
-  const fmtDate = (v) => { const d = asDate(v); return d ? d.toLocaleString('pt-BR') : '-'; };
-  const toast = (msg) => alert(msg);
-  const safeOn = (id, evt, fn) => { const node = el(id); if(node) node.addEventListener(evt, fn); };
-  function csvEscape(v){ const s = String(v ?? ''); return /[";,\n]/.test(s) ? '"' + s.replaceAll('"','""') + '"' : s; }
-  function downloadFile(name, content, type='text/plain;charset=utf-8'){ const blob = new Blob([content], {type}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
-  function setSyncBadge(kind, text){ const badge = el('syncBadge'); badge.classList.remove('ok','warn','err'); badge.classList.add(kind); el('syncText').textContent = text; }
-  function switchTab(tab){ qsa('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab)); ['cadastro','registro','drophook','painel'].forEach(name => el(`screen-${name}`).classList.toggle('active', name === tab)); }
-
-  function labelDtStatus(status){
-    return ({ disponivel:'Disponível', reservada:'Reservada', usada:'Registrada', cancelada:'Cancelada', fora_operacao:'Fora de operação', finalizada:'Finalizado' })[status] || status;
-  }
-  function labelType(type){ return type === 'registrado' ? 'Registrado' : 'Reservado'; }
-  function labelFlowStatus(status){ return ({ aberto:'Em aberto', concluido:'Concluído', finalizado:'Finalizado', cancelado:'Cancelado' })[status] || status; }
-  function labelDhStatus(status){
-    return ({
-      disponivel:'Disponível',
-      patio:'No pátio',
-      patio_carregada:'Carreta Carregada aguardando',
-      patio_vazia:'Carreta Vazia Aguardando',
-      doca:'Em doca',
-      carregamento:'Em carregamento',
-      descarga:'Em descarga',
-      pronta:'Pronta',
-      engatada:'Em rota',
-      aguardando:'Desvio',
-      finalizada:'Carregado',
-      descarregado:'Descarregado',
-      cancelada:'Cancelada', fora_operacao:'Fora de operação'
-    })[status] || status;
-  }
-  function labelDhAction(type){
-    return ({
-      patio_carregada:'Carreta Carregada aguardando',
-      em_descarga:'Em descarga',
-      em_carregamento:'Em Carregamento',
-      finalizado:'Finalizado',
-      patio_vazia:'Carreta Vazia Aguardando',
-      em_rota:'Em Rota',
-      cancelada:'Cancelar',
-      desvio:'Abrir desvio',
-      descarga:'Em descarga',
-      carregamento:'Em carregamento',
-      finalizada:'Finalizado',
-      engatada:'Em rota',
-      aguardando:'Abrir desvio'
-    })[type] || type;
-  }
-  function mapDhActionToStatus(action, location=''){
-    if(action === 'patio_carregada') return 'patio_carregada';
-    if(action === 'em_descarga' || action === 'descarga') return 'descarga';
-    if(action === 'em_carregamento' || action === 'carregamento') return 'carregamento';
-    if(action === 'finalizado' || action === 'finalizada') return 'finalizada';
-    if(action === 'patio_vazia') return 'patio_vazia';
-    if(action === 'em_rota' || action === 'engatada') return 'engatada';
-    if(action === 'cancelada') return 'cancelada';
-    if(action === 'desvio' || action === 'aguardando') return 'aguardando';
-    return String(location || '').startsWith('Doca') ? 'doca' : 'patio_carregada';
-  }
-  function sortDts(list, sortMode){
-    return [...list].sort((a,b)=>{
-      const aCreated = asDate(a.createdAt)?.getTime() || 0;
-      const bCreated = asDate(b.createdAt)?.getTime() || 0;
-      if(sortMode==='recentes') return bCreated - aCreated;
-      if(sortMode==='antigas') return aCreated - bCreated;
-      if(sortMode==='dt_asc') return a.dt.localeCompare(b.dt);
-      return b.dt.localeCompare(a.dt);
-    });
-  }
-  function sortDhUnits(list, sort='recentes'){
-    return [...list].sort((a,b)=>{
-      const aa = asDate(a.updatedAt || a.createdAt)?.getTime() || 0;
-      const bb = asDate(b.updatedAt || b.createdAt)?.getTime() || 0;
-      if(sort === 'antigas') return aa - bb;
-      if(sort === 'placa_asc') return a.id.localeCompare(b.id);
-      if(sort === 'placa_desc') return b.id.localeCompare(a.id);
-      return bb - aa;
-    });
-  }
-  function sortHistory(list, sort='recentes'){ return [...list].sort((a,b)=>((asDate(a.createdAt)?.getTime()||0) - (asDate(b.createdAt)?.getTime()||0)) * (sort==='antigas'?1:-1)); }
-  function fmtDuration(mins){ mins = Math.max(0, mins || 0); const h = Math.floor(mins/60); const m = mins%60; return h ? `${h}h ${m}m` : `${m}m`; }
-  function swapFactoryHeilo(value){
-    const v = String(value || '').trim();
-    if(!v) return '';
-    const low = v.toLowerCase();
-    if(low === 'fábrica' || low === 'fabrica') return 'Heilo';
-    if(low === 'heilo') return 'Fábrica';
-    return v;
-  }
-  function getLatestHistoryByDt(dt){
-    const clean = normalizeDt(dt || '');
-    if(!clean) return null;
-    return [...state.history]
-      .filter(r => normalizeDt(r.dt || '') === clean)
-      .sort((a,b)=> (new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)))[0] || null;
-  }
-
-  function getUnitOrigin(unit){
-    if(!unit) return '';
-    const destination = String(unit.destination || '').trim();
-    if(destination) return swapFactoryHeilo(destination);
-
-    const byCarreta = [...state.history]
-      .filter(r => normalizeUnitId(r.placaCarreta || '') === unit.id)
-      .sort((a,b)=> (new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)))[0];
-
-    const histOrigem = String(byCarreta?.origem || '').trim();
-    if(histOrigem) return histOrigem;
-
-    const location = String(unit.location || '').trim().toLowerCase();
-    if(location === 'heilo') return 'Heilo';
-    if(location === 'fábrica' || location === 'fabrica') return 'Fábrica';
-
-    return '';
-  }
-
-
-  function currentMinutes(v){ const d = asDate(v); return d ? Math.floor((Date.now() - d.getTime()) / 60000) : 0; }
-
-  function renderStats(){
-    const dtsEmUsoDh = new Set(
-      state.dhUnits
-        .map(u => String(u.dt || '').trim())
-        .filter(Boolean)
-    );
-    const dtsDisponiveis = state.dts.filter(d=>d.status==='disponivel').length;
-    const dtsReservadas = state.dts.filter(d=>d.status==='reservada' && !dtsEmUsoDh.has(String(d.dt || '').trim())).length;
-    const dhPatio = state.dhUnits.filter(u=>['patio','carregamento','descarga'].includes(u.status)).length;
-    const dhDoca = state.dhUnits.filter(u=>u.status==='doca').length;
-    const dhPronta = state.dhUnits.filter(u=>['patio_carregada','patio_vazia'].includes(u.status) || (u.status==='finalizada' && u.preserveFinalizedData===true)).length;
-    const movsAbertos = state.dhMoves.filter(m=>m.flowStatus==='aberto').length;
-    el('stats').innerHTML = `
-      <div class="card stat"><div class="label">DTs cadastradas</div><div class="value">${state.dts.length}</div></div>
-      <div class="card stat"><div class="label">DTs disponíveis</div><div class="value green">${dtsDisponiveis}</div></div>
-      <div class="card stat"><div class="label">DTs reservadas</div><div class="value yellow">${dtsReservadas}</div></div>
-      <div class="card stat"><div class="label">Drop & Hook em processo</div><div class="value blue">${dhPatio}</div></div>
-      <div class="card stat"><div class="label">Em doca</div><div class="value violet">${dhDoca}</div></div>
-      <div class="card stat"><div class="label">Prontas p/ engate</div><div class="value green">${dhPronta}</div></div>`;
-    el('panelPatio').textContent = state.dhUnits.filter(u=>u.status==='patio').length;
-    el('panelDoca').textContent = state.dhUnits.filter(u=>['doca','carregamento','descarga'].includes(u.status)).length;
-    el('panelPronta').textContent = state.dhUnits.filter(u=>['patio_carregada','patio_vazia'].includes(u.status) || (u.status==='finalizada' && u.preserveFinalizedData===true)).length;
-    el('panelEngatada').textContent = state.dhUnits.filter(u=>u.status==='engatada').length;
-  }
-
-
-  async function createOrUpdateHistoryForDh(unit, dt, sku, flowStatus='aberto'){
-    const cleanDt = normalizeDt(dt || '');
-    if(!cleanDt || !unit) return null;
-    const existing = [...state.history]
-      .filter(r => normalizeDt(r.dt || '') === cleanDt)
-      .sort((a,b)=> (new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)))[0];
-
-    const destination = String(unit.destination || '').trim();
-    const origem = swapFactoryHeilo(destination || '') || '';
-    const payload = {
-      dt: cleanDt,
-      sku: String(sku || '').trim(),
-      flowStatus,
-      motorista: unit.lastDriver || '',
-      transportadora: unit.transportadora || 'RITMO',
-      placaCavalo: unit.currentHorse || '',
-      placaCarreta: unit.id || '',
-      origem,
-      destino: destination,
-      observacao: unit.notes || '',
-      updatedAt: nowIso(),
-    };
-
-    if(existing){
-      try{
-        await updateDoc(doc(db, 'registros', existing.id), payload);
-        return existing.id;
-      }catch(e){
-        console.error(e);
-        return existing.id;
-      }
-    }
-
-    try{
-      const historyRef = doc(collection(db, 'registros'));
-      await setDoc(historyRef, {
-        id: historyRef.id,
-        type: 'registrado',
-        createdAt: nowIso(),
-        ...payload
-      });
-      return historyRef.id;
-    }catch(e){
-      console.error(e);
-      return null;
-    }
-  }
-
-  async function markDtAsUsed(dt, sku=''){
-    const cleanDt = normalizeDt(dt || '');
-    if(!cleanDt) return;
-    try{
-      const dtRef = doc(db, 'dts', cleanDt);
-      const snap = await getDoc(dtRef);
-      if(snap.exists()){
-        const dtData = snap.data() || {};
-        await setDoc(dtRef, {
-          dt: cleanDt,
-          sku: dtData.sku || String(sku || '').trim(),
-          status: 'usada',
-          updatedAt: nowIso(),
-          createdAt: dtData.createdAt || nowIso()
-        }, { merge:true });
-      }
-    }catch(e){
-      console.error(e);
-    }
-  }
-
-  async function addDt(value, sku=''){
-    const dt = normalizeDt(value); const skuValue = String(sku || '').trim();
-    if(!dt) return {ok:false,msg:'Digite uma DT válida.'};
-    if(state.dts.some(d=>d.dt===dt)) return {ok:false,msg:`DT ${dt} já cadastrada.`};
-    await setDoc(doc(db, 'dts', dt), { dt, sku: skuValue, status:'disponivel', createdAt: nowIso(), updatedAt: nowIso() });
-    return {ok:true,msg:`DT ${dt} adicionada.`};
-  }
-  async function addBulk(text, sku=''){
-    const skuValue = String(sku || '').trim();
-    const parts = String(text || '').split(/[\s,;\n\r\t]+/).map(normalizeDt).filter(Boolean);
-    let added = 0, ignored = 0;
-    for(const dt of parts){
-      if(state.dts.some(d=>d.dt===dt)){ ignored++; continue; }
-      await setDoc(doc(db, 'dts', dt), { dt, sku: skuValue, status:'disponivel', createdAt: nowIso(), updatedAt: nowIso() });
-      added++;
-    }
-    return {added, ignored};
-  }
-  async function updateDtStatus(dt, status){
-    const ref = doc(db, 'dts', dt); const snap = await getDoc(ref);
-    if(!snap.exists()) throw new Error('DT não encontrada.');
-    await updateDoc(ref, { status, updatedAt: nowIso() });
-  }
-  async function removeDt(dt){ await deleteDoc(doc(db, 'dts', dt)); }
-
-  function getAvailableDts(){ return state.dts.filter(d=>d.status==='disponivel'); }
-  function nextAvailableDt(){ return [...getAvailableDts()].sort((a,b)=> (asDate(a.createdAt)?.getTime()||0) - (asDate(b.createdAt)?.getTime()||0))[0] || null; }
-  function getAvailableSkus(){ return [...new Set(getAvailableDts().map(d=>String(d.sku||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)); }
-  function manualDtOptions(){
-    const manualMode = el('dtMode').value === 'manual';
-    el('manualFilterWrap').style.display = manualMode ? 'grid' : 'none';
-    el('manualDtField').style.display = manualMode ? 'block' : 'none';
-    if(!manualMode){ el('manualSkuField').style.display = 'none'; return; }
-    const skuMode = el('manualSelectMode').value === 'sku';
-    const skus = getAvailableSkus();
-    el('manualSkuField').style.display = skuMode ? 'block' : 'none';
-    el('manualSkuSelect').innerHTML = skus.length
-      ? '<option value="">Selecione o SKU</option>' + skus.map(sku => `<option value="${escapeHtml(sku)}">${escapeHtml(sku)}</option>`).join('')
-      : '<option value="">Sem SKU disponível</option>';
-    const selectedSku = el('manualSkuSelect').value;
-    let opts = getAvailableDts();
-    if(skuMode){ opts = selectedSku ? opts.filter(d => String(d.sku || '').trim() === selectedSku) : []; }
-    opts = opts.sort((a,b)=> a.dt.localeCompare(b.dt));
-    el('manualDtSelect').innerHTML = opts.length
-      ? opts.map(d=>`<option value="${d.dt}">${d.dt}${d.sku ? ' • ' + escapeHtml(d.sku) : ''}</option>`).join('')
-      : '<option value="">Sem DT disponível</option>';
-  }
-  async function registerDt(type='registrado'){
-    let dt;
-    if(el('dtMode').value === 'manual'){ dt = el('manualDtSelect').value; if(!dt) return toast('Selecione uma DT disponível.'); }
-    else { dt = nextAvailableDt()?.dt; if(!dt) return toast('Não há DT disponível.'); }
-    const historyRef = doc(collection(db, 'registros'));
-    const dtRef = doc(db, 'dts', dt);
-    const payload = {
-      id: historyRef.id, dt, type, flowStatus: 'aberto',
-      motorista: el('motorista').value.trim(),
-      transportadora: (el('transportadora').value.trim() || 'RITMO'),
-      placaCavalo: normalizePlate(el('placaCavalo').value),
-      placaCarreta: normalizePlate(el('placaCarreta').value),
-      origem: el('origem').value.trim(),
-      destino: el('destino').value.trim(),
-      observacao: el('observacao').value.trim(),
-      createdAt: nowIso(), updatedAt: nowIso(),
-    };
-    await runTransaction(db, async (transaction) => {
-      const dtSnap = await transaction.get(dtRef);
-      if(!dtSnap.exists()) throw new Error('DT não encontrada.');
-      const dtData = dtSnap.data();
-      if(dtData.status !== 'disponivel') throw new Error('Essa DT não está disponível.');
-      transaction.update(dtRef, { status: type === 'registrado' ? 'usada' : 'reservada', updatedAt: nowIso() });
-      transaction.set(historyRef, { ...payload, sku: dtData.sku || '' });
-    });
-    ['motorista','transportadora','placaCavalo','placaCarreta','origem','destino','observacao'].forEach(id=>el(id).value='');
-    syncDhFromDtHistory();
-    renderAll();
-    toast(`DT ${dt} ${type === 'registrado' ? 'registrada' : 'reservada'} com sucesso.`);
-  }
-  async function setHistoryStatus(id, newStatus){
-    const historyRef = doc(db, 'registros', id);
-    await runTransaction(db, async (transaction) => {
-      const historySnap = await transaction.get(historyRef);
-      if(!historySnap.exists()) throw new Error('Registro não encontrado.');
-      const record = historySnap.data();
-      if(record.flowStatus !== 'aberto') throw new Error('Esse registro já foi finalizado.');
-      transaction.update(historyRef, { flowStatus: newStatus, updatedAt: nowIso() });
-      const dtRef = doc(db, 'dts', record.dt);
-      if(newStatus === 'concluido'){ transaction.delete(dtRef); }
-      else if(newStatus === 'cancelado'){ transaction.set(dtRef, { dt: record.dt, sku: record.sku || '', status: 'disponivel', updatedAt: nowIso(), createdAt: nowIso() }, { merge: true }); }
-    });
-  }
-
-
-  async function removeDhUnit(unitId){
-    const cleanId = normalizeUnitId(unitId || '');
-    if(!cleanId) throw new Error('Carreta inválida.');
-    state.dhUnits = state.dhUnits.filter(u => u.id !== cleanId);
-    state.dhMoves = state.dhMoves.filter(m => m.unitId !== cleanId);
-    saveDhLocal();
-  }
-
-  async function addDhUnit(id, dt='', type='Sider', transportadora=''){
-    const unitId = normalizeUnitId(id); const cleanDt = normalizeDt(dt);
-    if(!unitId) return { ok:false, msg:'Digite uma placa/ID válida.' };
-    if(state.dhUnits.some(u => u.id === unitId)) return { ok:false, msg:`${unitId} já cadastrada.` };
-    state.dhUnits.push({
-      id: unitId, dt: cleanDt, type: String(type || 'Sider').trim(), transportadora: String(transportadora || 'RITMO').trim(),
-      location: 'Pátio', status: 'disponivel', currentHorse: '', lastDriver: '', destination: '', notes: '',
-      createdAt: nowIso(), updatedAt: nowIso(), lastMoveAt: nowIso()
-    });
-    saveDhLocal();
-    return { ok:true, msg:`${unitId} cadastrada.` };
-  }
-
-  function fillDocaDtOptions(unitId=''){
-    const select = el('docaDtSelect');
-    if(!select) return;
-
-    const unit = unitId ? state.dhUnits.find(u => u.id === unitId) : null;
-    const unitOrigin = String(getUnitOrigin(unit) || '').trim().toLowerCase();
-
-    const disponiveis = [...state.dts]
-      .filter(d => d.status === 'disponivel' || d.status === 'reservada')
-      .filter(d => {
-        if(!unitOrigin) return true;
-        const rec = getLatestHistoryByDt(d.dt);
-        const dtOrigin = String(rec?.origem || '').trim().toLowerCase();
-        return !dtOrigin || dtOrigin === unitOrigin;
-      })
-      .sort((a,b) => String(a.dt || '').localeCompare(String(b.dt || '')));
-
-    select.innerHTML =
-      '<option value="">Selecione uma DT cadastrada</option>' +
-      disponiveis.map(d => {
-        const rec = getLatestHistoryByDt(d.dt);
-        const originLabel = rec?.origem ? ` • ${escapeHtml(rec.origem)}` : '';
-        return `<option value="${escapeHtml(d.dt)}">${escapeHtml(d.dt)}${d.sku ? ' • ' + escapeHtml(d.sku) : ''}${d.status ? ' • ' + escapeHtml(labelDtStatus(d.status)) : ''}${originLabel}</option>`;
-      }).join('');
-  }
-
-  function fillDhLocationOptions(){
-    const options = DOCAS.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
-    const dhToLocation = el('dhToLocation');
-    const opLocationFilter = el('opLocationFilter');
-    if(dhToLocation) dhToLocation.innerHTML = options;
-    if(opLocationFilter) opLocationFilter.innerHTML = `<option value="todos">Todos</option>` + options;
-  }
-  function fillDhUnitSelect(){
-    const select = el('dhUnitSelect');
-    if(!select) return;
-    const options = sortDhUnits(state.dhUnits, 'placa_asc');
-    select.innerHTML = options.length
-      ? options.map(u => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.id)} • ${escapeHtml(u.dt || '-')} • ${escapeHtml(labelDhStatus(u.status))}</option>`).join('')
-      : '<option value="">Nenhuma carreta cadastrada</option>';
-    syncDhSelectedUnit();
-  }
-  function syncDhSelectedUnit(){
-    const unitSelect = el('dhUnitSelect');
-    if(!unitSelect) return;
-    const id = unitSelect.value;
-    const unit = state.dhUnits.find(u => u.id === id);
-    const placaRead = el('dhPlacaCarretaRead');
-    const dtField = el('dhOperationDt');
-    const transpField = el('dhTransportadora');
-    const cavaloField = el('dhPlacaCavalo');
-    const motoristaField = el('dhMotorista');
-    if(placaRead) placaRead.value = unit?.id || '';
-    if(dtField) dtField.value = String(unit?.dt || '');
-    if(transpField) transpField.value = unit?.transportadora || '';
-    if(cavaloField && unit?.currentHorse) cavaloField.value = unit.currentHorse || '';
-    if(motoristaField && unit?.lastDriver) motoristaField.value = unit.lastDriver || '';
-    updateDhPreview();
-  }
-  function updateDhPreview(){
-    const flow = el('dhFlowPreview');
-    const status = el('dhStatusPreview');
-    const toLocation = el('dhToLocation');
-    if(flow) flow.textContent = labelDhAction(dhMode);
-    if(status) status.textContent = labelDhStatus(mapDhActionToStatus(dhMode, toLocation ? toLocation.value : ''));
-  }
-  function clearDhFields(){
-    ['dhOperationDt','dhMotorista','dhTransportadora','dhPlacaCavalo','dhDoca','dhDestino','dhObservacao'].forEach(id => {
-      const node = el(id);
-      if(node) node.value='';
-    });
-    dhMode = 'patio_carregada';
-    qsa('#dhStatusButtons .status-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.status === dhMode));
-    const toLocation = el('dhToLocation');
-    if(toLocation) toLocation.value = 'Pátio';
-    syncDhSelectedUnit();
-    updateDhPreview();
-  }
-  async function saveDhMove(){
-    const unitId = el('dhUnitSelect').value;
-    if(!unitId) return toast('Selecione uma carreta.');
-    const idx = state.dhUnits.findIndex(u => u.id === unitId);
-    if(idx === -1) throw new Error('Carreta não encontrada.');
-    const unit = state.dhUnits[idx];
-    const dt = normalizeDt(el('dhOperationDt').value || unit.dt || '');
-    const motorista = el('dhMotorista').value.trim();
-    const transportadora = (el('dhTransportadora').value.trim() || unit.transportadora || '').trim();
-    const placaCavalo = normalizePlate(el('dhPlacaCavalo').value);
-    const doca = el('dhDoca').value.trim();
-    const destination = el('dhDestino').value.trim();
-    const observacao = el('dhObservacao').value.trim();
-    const effectiveLocation = dhAction === 'ready' ? (doca || unit.location || 'Pátio') : (dhAction === 'saida' ? 'Em rota' : (el('dhToLocation').value || unit.location || 'Pátio'));
-    const newStatus = mapDhActionToStatus(dhAction, effectiveLocation);
-
-    state.dhMoves.unshift({
-      id: uid('dhm'), unitId, dt, type: dhAction,
-      flowStatus: dhAction === 'saida' ? 'concluido' : 'aberto',
-      motorista, transportadora, placaCavalo,
-      fromLocation: unit.location || '-', toLocation: effectiveLocation,
-      doca, destination, observacao, createdAt: nowIso(), updatedAt: nowIso()
-    });
-
-    state.dhUnits[idx] = {
-      ...unit,
-      dt, status: newStatus, location: effectiveLocation, transportadora,
-      currentHorse: dhAction === 'drop' ? '' : placaCavalo,
-      lastDriver: motorista, destination, notes: observacao,
-      updatedAt: nowIso(), lastMoveAt: nowIso()
-    };
-
-    saveDhLocal();
-    clearDhFields();
-    toast('Movimento salvo com sucesso.');
-  }
-  async function updateDhUnitQuick(id, status, location){
-    const idx = state.dhUnits.findIndex(u => u.id === id);
-    if(idx === -1) throw new Error('Carreta não encontrada.');
-    const unit = state.dhUnits[idx];
-
-    state.dhMoves.unshift({
-      id: uid('dhm'),
-      unitId: unit.id,
-      dt: unit.dt || '',
-      type: status,
-      flowStatus: status === 'finalizada' ? 'finalizado' : 'aberto',
-      motorista: unit.lastDriver || '',
-      transportadora: unit.transportadora || 'RITMO',
-      placaCavalo: unit.currentHorse || '',
-      fromLocation: unit.location || '-',
-      toLocation: location || '-',
-      doca: '',
-      destination: unit.destination || '',
-      observacao: unit.notes || '',
-      createdAt: nowIso(),
-      updatedAt: nowIso()
-    });
-
-    const dtValue = unit.dt || '';
-    const matchingRecords = state.history
-      .filter(r => (r.dt || '') === dtValue && normalizeUnitId(r.placaCarreta || '') === unit.id)
-      .sort((a,b)=> (new Date(b.createdAt || 0) - new Date(a.createdAt || 0)));
-    const latestRecord = matchingRecords[0];
-
-    if(status === 'finalizada'){
-      const cameFromCarregamento = unit.status === 'carregamento';
-      const cameFromDescarga = unit.status === 'descarga';
-
-      if(dtValue){
-        try{
-          await setDoc(doc(db, 'dts', dtValue), {
-            dt: dtValue,
-            sku: unit.sku || latestRecord?.sku || '',
-            status: 'descarregado',
-            updatedAt: nowIso(),
-            createdAt: latestRecord?.createdAt || nowIso()
-          }, { merge:true });
-        }catch(e){ console.error(e); }
-      }
-      if(latestRecord){
-        try{ await updateDoc(doc(db, 'registros', latestRecord.id), { flowStatus:'finalizado', updatedAt: nowIso() }); }catch(e){ console.error(e); }
-      }
-
-      // Carregamento: mantém todas as informações e muda status para carregado
-      if(cameFromCarregamento){
-        state.dhUnits[idx] = {
-          ...unit,
-          status: 'finalizada',
-          location: location || 'Finalizado',
-          preserveFinalizedData: 'carregamento',
-          preserveRouteData: false,
-          updatedAt: nowIso(),
-          lastMoveAt: nowIso()
-        };
-        saveDhLocal();
-        return;
-      }
-
-      // Só descarga: mantém apenas origem/destino/cavalo
-      if(cameFromDescarga){
-        state.dhUnits[idx] = {
-          ...unit,
-          status: 'finalizada',
-          location: location || 'Finalizado',
-          preserveFinalizedData: 'descarga',
-          preserveRouteData: true,
-          dt: '',
-          sku: '',
-          transportadora: '',
-          lastDriver: '',
-          notes: '',
-          updatedAt: nowIso(),
-          lastMoveAt: nowIso()
-        };
-        saveDhLocal();
-        return;
-      }
-
-      // Demais casos: limpa tudo
-      state.dhUnits[idx] = {
-        ...unit,
-        status: 'finalizada',
-        location: location || 'Finalizado',
-        preserveFinalizedData: false,
-        preserveRouteData: false,
-        dt: '',
-        sku: '',
-        currentHorse: '',
-        transportadora: '',
-        lastDriver: '',
-        destination: '',
-        notes: '',
-        updatedAt: nowIso(),
-        lastMoveAt: nowIso()
-      };
-      saveDhLocal();
-      return;
-    }
-
-    if(status === 'cancelada'){
-      if(dtValue){
-        try{
-          await setDoc(doc(db, 'dts', dtValue), {
-            dt: dtValue,
-            sku: unit.sku || latestRecord?.sku || '',
-            status: 'disponivel',
-            updatedAt: nowIso(),
-            createdAt: latestRecord?.createdAt || nowIso()
-          }, { merge:true });
-        }catch(e){ console.error(e); }
-      }
-      if(latestRecord){
-        try{ await updateDoc(doc(db, 'registros', latestRecord.id), { flowStatus:'cancelado', updatedAt: nowIso() }); }catch(e){ console.error(e); }
-      }
-      state.dhUnits[idx] = {
-        ...unit,
-        status: 'cancelada',
-        location: location || 'Externo',
-        preserveFinalizedData: false,
-        preserveRouteData: false,
-        dt: '',
-        sku: '',
-        currentHorse: '',
-        transportadora: '',
-        lastDriver: '',
-        destination: '',
-        notes: '',
-        updatedAt: nowIso(),
-        lastMoveAt: nowIso()
-      };
-      saveDhLocal();
-      return;
-    }
-
-    if(status === 'fora_operacao'){
-      state.dhUnits[idx] = {
-        ...unit,
-        status: 'fora_operacao',
-        location: location || 'Fora de operação',
-        preserveFinalizedData: false,
-        preserveRouteData: false,
-        dt: '',
-        sku: '',
-        currentHorse: '',
-        transportadora: '',
-        lastDriver: '',
-        destination: '',
-        notes: '',
-        updatedAt: nowIso(),
-        lastMoveAt: nowIso()
-      };
-      saveDhLocal();
-      return;
-    }
-
-    // Em Rota: só altera status
-    if(status === 'engatada'){
-      state.dhUnits[idx] = {
-        ...unit,
-        status: 'engatada',
-        location: location || 'Em rota',
-        updatedAt: nowIso(),
-        lastMoveAt: nowIso()
-      };
-      saveDhLocal();
-      return;
-    }
-
-    // Só descarga: apaga informações, mantém origem/destino/cavalo
-    if(status === 'descarga'){
-      const cameFromRotaOrFinal = ['engatada','finalizada'].includes(unit.status);
-      const nextDestination = cameFromRotaOrFinal ? swapFactoryHeilo(unit.destination || '') : (unit.destination || '');
-      if(latestRecord && cameFromRotaOrFinal){
-        try{
-          await updateDoc(doc(db, 'registros', latestRecord.id), {
-            origem: swapFactoryHeilo(latestRecord.origem || unit.destination || ''),
-            destino: swapFactoryHeilo(latestRecord.destino || unit.destination || ''),
-            updatedAt: nowIso()
-          });
-        }catch(e){ console.error(e); }
-      }
-      state.dhUnits[idx] = {
-        ...unit,
-        status: 'descarga',
-        location: location || 'Doca 1',
-        preserveRouteData: true,
-        dt: '',
-        sku: '',
-        transportadora: '',
-        lastDriver: '',
-        destination: nextDestination,
-        notes: '',
-        updatedAt: nowIso(),
-        lastMoveAt: nowIso()
-      };
-      saveDhLocal();
-      return;
-    }
-
-    // Vazia: apaga tudo, mantém só origem/destino
-    if(status === 'patio_vazia'){
-      state.dhUnits[idx] = {
-        ...unit,
-        status: 'patio_vazia',
-        location: location || 'Pátio',
-        preserveFinalizedData: false,
-        preserveRouteData: true,
-        dt: '',
-        sku: '',
-        currentHorse: '',
-        transportadora: '',
-        lastDriver: '',
-        destination: unit.destination || '',
-        notes: '',
-        updatedAt: nowIso(),
-        lastMoveAt: nowIso()
-      };
-      saveDhLocal();
-      return;
-    }
-
-    state.dhUnits[idx] = {
-      ...unit,
-      status,
-      location,
-      preserveRouteData: status === 'carregamento' ? false : unit.preserveRouteData,
-      preserveFinalizedData: status === 'carregamento' ? false : unit.preserveFinalizedData,
-      updatedAt: nowIso(),
-      lastMoveAt: nowIso()
-    };
-    saveDhLocal();
-  }
-
-  function renderDtTable(){
-    const searchRaw = String((el('searchDt') && el('searchDt').value) || '').trim().toLowerCase();
-    const searchDt = normalizeDt(searchRaw);
-    const status = (el('statusFilter') && el('statusFilter').value) || 'todos';
-    const sortMode = (el('sortMode') && el('sortMode').value) || 'recentes';
-    let rows = [...state.dts].filter(r => r.status !== 'finalizada');
-
-    if(searchRaw){
-      rows = rows.filter(r =>
-        (searchDt && String(r.dt || '').includes(searchDt)) ||
-        String(r.sku || '').toLowerCase().includes(searchRaw)
-      );
-    }
-
-    if(status !== 'todos') rows = rows.filter(r => r.status === status);
-    rows = sortDts(rows, sortMode);
-
-    const wrap = el('dtTableWrap');
-    if(!wrap) return;
-
-    if(!rows.length){
-      wrap.innerHTML = '<div class="empty">Nenhuma DT encontrada.</div>';
-      return;
-    }
-
-    wrap.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>DT</th>
-            <th>SKU</th>
-            <th>Status</th>
-            <th>Criada</th>
-            <th>Atualizada</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(r => `
+        <table>
+          <colgroup><col><col style="width:27%"></colgroup>
+          <thead><tr><th>Tipo descarga</th><th class="onde">Onde</th></tr></thead>
+          <tbody>
             <tr>
-              <td><strong>${escapeHtml(r.dt)}</strong></td>
-              <td>${escapeHtml(r.sku || '-')}</td>
-              <td><span class="badge status-${escapeHtml(r.status)}">${labelDtStatus(r.status)}</span></td>
-              <td>${fmtDate(r.createdAt)}</td>
-              <td>${fmtDate(r.updatedAt)}</td>
-              <td>
-                <div class="row-actions">
-                  ${r.status !== 'reservada' ? `<button class="a2" onclick="window.setStatus('${escapeHtml(r.dt)}','reservada')">Reservar</button>` : ''}
-                  ${r.status !== 'cancelada' ? `<button class="a1" onclick="window.setStatus('${escapeHtml(r.dt)}','cancelada')">Cancelar</button>` : ''}
-                  <button class="a3" onclick="window.deleteDt('${escapeHtml(r.dt)}')">Excluir</button>
-                </div>
-              </td>
+              <td><select class="clickable-select tipo-select" data-key="tipo-vasilhame-1">
+                <option>VASILHAMES HEINEKEN</option>
+                <option>VASILHAMES ÂMBAR</option>
+                <option>KEGS 30L</option>
+                <option>KEGS 50L</option>
+                <option>DESCARGA PALETES NOVOS</option>
+              </select></td>
+              <td class="onde"><select class="clickable-select dest-select" data-key="dest-vasilhame-1" data-emphasis="normal"><option>FÁBRICA</option><option>HEILO</option></select></td>
             </tr>
-          `).join('')}
-        </tbody>
-      </table>`;
-  }
-
-  function renderDhOperationTable(){
-    const search = String(el('opSearch')?.value || '').toLowerCase().trim();
-    const status = el('opStatusFilter')?.value || 'todos';
-    const location = el('opLocationFilter')?.value || 'todos';
-    const sort = el('opSort')?.value || 'recentes';
-    let rows = [...state.dhUnits];
-
-    if(search){
-      rows = rows.filter(r => [r.id,String(r.dt||''),String(r.sku||''),r.type,r.status,r.location,r.transportadora,r.currentHorse,r.lastDriver,r.destination,r.notes].join(' ').toLowerCase().includes(search));
-    }
-    if(status !== 'todos') rows = rows.filter(r => r.status === status);
-    if(location !== 'todos') rows = rows.filter(r => (r.location || '') === location);
-    rows = sortDhUnits(rows, sort);
-
-    const wrap = el('operationTableWrap');
-    if(!wrap) return;
-
-    if(!rows.length){
-      wrap.innerHTML = '<div class="empty">Nenhuma carreta encontrada para operação.</div>';
-      return;
-    }
-
-    wrap.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>Carreta</th>
-            <th>DT</th>
-            <th>SKU</th>
-            <th>Tipo</th>
-            <th>Status</th>
-            <th>Local</th>
-            <th>Transportadora</th>
-            <th>Cavalo</th>
-            <th>Motorista</th>
-            <th>Origem</th>
-            <th>Destino</th>
-            <th>Atualizada</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(r => `
+            <tr><td>KEGS 30L</td><td class="onde"><select class="clickable-select dest-select" data-key="dest-kegs-30" data-emphasis="normal"><option>FÁBRICA</option><option>HEILO</option></select></td></tr>
+            <tr><td>KEGS 50L</td><td class="onde"><select class="clickable-select dest-select" data-key="dest-kegs-50" data-emphasis="normal"><option>FÁBRICA</option><option>HEILO</option></select></td></tr>
             <tr>
-              <td><strong>${escapeHtml(r.id)}</strong></td>
-              <td>${escapeHtml(String(r.dt || '').trim() || '-')}</td>
-              <td>${escapeHtml(String(r.sku || '').trim() || '-')}</td>
-              <td>${escapeHtml(r.type || '-')}</td>
-              <td><span class="badge status-${escapeHtml(r.status)}">${escapeHtml(labelDhStatus(r.status))}</span></td>
-              <td>${escapeHtml(r.location || '-')}</td>
-              <td>${escapeHtml(r.transportadora || '-')}</td>
-              <td>
-                <div style="display:flex;gap:6px;align-items:center;min-width:132px">
-                  <input value="${escapeHtml(r.currentHorse || '')}" placeholder="Cavalo" style="width:86px;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);font-size:12px" oninput="window.setTempHorse('${escapeHtml(r.id)}', this.value)" -->
-                  <button class="a1" style="padding:6px 8px;font-size:11px" onclick="window.saveHorse('${escapeHtml(r.id)}')">OK</button>
-                </div>
-              </td>
-              <td>${escapeHtml(r.lastDriver || '-')}</td>
-              <td>${escapeHtml(swapFactoryHeilo(r.destination || '') || '-')}</td>
-              <td>${escapeHtml(r.destination || '-')}</td>
-              <td>${fmtDate(r.updatedAt)}</td>
-              <td>
-                <div class="action-grid-compact">
-                  <button class="a2" onclick="window.handleDhAction('${escapeHtml(r.id)}','patio_carregada')">Carregada</button>
-                  <button class="a5" onclick="window.handleDhAction('${escapeHtml(r.id)}','descarga')">Descarga</button>
-                  <button class="a4" onclick="window.handleDhAction('${escapeHtml(r.id)}','carregamento')">Carregamento</button>
-                  <button class="a4" onclick="window.handleDhAction('${escapeHtml(r.id)}','finalizada')">Finalizar</button>
-                  <button class="a1" onclick="window.handleDhAction('${escapeHtml(r.id)}','patio_vazia')">Vazia</button>
-                  <button class="a2" onclick="window.handleDhAction('${escapeHtml(r.id)}','engatada')">Em rota</button>
-                  <button class="a3" onclick="window.handleDhAction('${escapeHtml(r.id)}','cancelada')">Cancelar</button>
-                  <button class="a6" onclick="window.handleDhAction('${escapeHtml(r.id)}','fora_operacao')">Fora operação</button>
-                  <button class="a5" onclick="window.handleDhAction('${escapeHtml(r.id)}','desvio')">Desvio</button>
-                </div>
-              </td>
-            </tr>`).join('')}
-        </tbody>
-      </table>`;
+              <td><select class="clickable-select tipo-select" data-key="tipo-vasilhame-2">
+                <option>VASILHAMES ÂMBAR</option>
+                <option>VASILHAMES HEINEKEN</option>
+                <option>KEGS 30L</option>
+                <option>KEGS 50L</option>
+                <option>DESCARGA PALETES NOVOS</option>
+              </select></td>
+              <td class="onde"><select class="clickable-select dest-select" data-key="dest-vasilhame-2" data-emphasis="normal"><option>HEILO</option><option>FÁBRICA</option></select></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64"><path d="M45 15l9 9-9 9"/><path d="M10 32v-3a10 10 0 0 1 10-10h33"/><path d="M19 49l-9-9 9-9"/><path d="M54 32v3a10 10 0 0 1-10 10H11"/></svg>
+        </div>
+        <table class="compact">
+          <colgroup><col><col style="width:27%"></colgroup>
+          <tbody>
+            <tr><th>Transferência</th><th class="onde">Onde</th></tr>
+            <tr><td>TRANSFERÊNCIAS</td><td class="onde"><select class="clickable-select dest-select" data-key="dest-transferencias" data-emphasis="critical"><option>HEILO</option><option>FÁBRICA</option></select></td></tr>
+            <tr><th>Devoluções</th><th class="onde">Onde</th></tr>
+            <tr><td>CARGA COMPLETA (≠ CHOPP)</td><td class="onde"><select class="clickable-select dest-select" data-key="dest-dev-completa" data-emphasis="green"><option>HEILO</option><option>FÁBRICA</option></select></td></tr>
+            <tr><td>CARGA FRACIONADA (≠ CHOPP)</td><td class="onde"><select class="clickable-select dest-select" data-key="dest-dev-fracionada" data-emphasis="green"><option>HEILO</option><option>FÁBRICA</option></select></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="icon fill" aria-hidden="true">
+          <svg viewBox="0 0 64 64"><path d="M8 53h50v-7H8v7zm4-7h8V30l13 8v8h5V30l13 8v8h5V19h-8v15L35 26v10L22 28v18H12zm0-24h8v6h-8v-6zm22 20h5v4h-5v-4zm13 0h5v4h-5v-4z"/></svg>
+        </div>
+        <table class="sku-table">
+          <colgroup><col style="width:17%"><col></colgroup>
+          <thead><tr><th>Linha</th><th>SKUs em produção 24/12/2025</th></tr></thead>
+          <tbody id="skuBody">
+            <tr data-row="1" data-line="L01" data-code="905291"><td></td><td></td></tr>
+            <tr data-row="2" data-line="L03" data-code="903496"><td></td><td></td></tr>
+            <tr data-row="3" data-line="L05" data-code="903482"><td></td><td></td></tr>
+            <tr data-row="4" data-line="L06" data-code="904952"><td></td><td></td></tr>
+            <tr data-row="5" data-line="L07" data-code="903384"><td></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+
+  <footer class="bottom">
+    <div class="safety"><div class="shield">+</div><div class="safety-title">SAFETY<span>FIRST</span></div></div>
+    <div class="alerta">
+      <div class="atencao">⚠ ATENÇÃO</div>
+      <div class="geral"><span class="warn-icon">⚠️</span><span>Atenção e olhar crítico. Cuide da sua segurança e da segurança do seu companheiro. <strong>Não negociamos vidas</strong>.</span></div>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+</main>
+
+<script>
+const STORAGE_KEY = 'painel-direcionamentos-ato-visual-anterior-funcional-v1';
+let undoStack = [];
+let currentState = null;
+
+const skuOptions = [
+  {code:'903382', desc:'Cerv Bavaria Pil 0,473Lt Desc 12Un Pbr', line:'L07'},
+  {code:'903384', desc:'Cerv Kaiser Lag 0,473Lt Desc 12Un Pbr', line:'L07'},
+  {code:'903478', desc:'Cerv Heineken Pil 0,330Gfa Desc 4X6Unpbr', line:'L01'},
+  {code:'903480', desc:'Cerv Heineken Pil 0,6Gfa Desc 12Unpbr', line:'L05'},
+  {code:'903482', desc:'Cerv Heineken Pil 0,60Gfa Rt 24Un', line:'L05'},
+  {code:'903486', desc:'Draft Beer Heineken Pilsen 30L Pbr2', line:'L03'},
+  {code:'903489', desc:'Draft Beer Heineken Pilsen 50L Pbr2', line:'L03'},
+  {code:'903496', desc:'Draft Beer Kaiser Lager 50L Pbr2', line:'L03'},
+  {code:'904502', desc:'Cerv Amstel Lager 0,60l Gfa Rt 24un', line:'L05'},
+  {code:'904504', desc:'Cerv Amstel Lager 0,473Lt Des 12Unpbr', line:'L06'},
+  {code:'904507', desc:'Draft Beer Amstel Lager 50l Pbr2', line:'L03'},
+  {code:'904932', desc:'Cerv Heineken Pil 0,350lt Sleekdes12unpb', line:'L06'},
+  {code:'904952', desc:'Cerv Amstel Lager 0,350lt Sleek 12un Pbr', line:'L06'},
+  {code:'904701', desc:'Cerv Sol Pil 0,330gfa Desc Astro4x6unpbr', line:'L01'},
+  {code:'905163', desc:'Draft Beer Amstel Lager 30L Pbr2', line:'L03'},
+  {code:'905291', desc:'Cerv Heineken Pil 0,250gfa Desc4x6unpbr', line:'L01'},
+  {code:'903495', desc:'Draft Beer Kaiser Lager 30L Pbr2', line:'L03'},
+  {code:'905451', desc:'Cerv Praya Lager 0,330gfa Desc 4x6unpbr', line:'L01'},
+  {code:'903750', desc:'Cerv Eisen Pil 0,350Lt Sleek Cart12Unpbr', line:'L06'},
+  {code:'905573', desc:'Cerv Heineken Ult 0,330gfa Des 4x6un Pbr', line:'L01'},
+  {code:'905572', desc:'Cerv Heineken Ult 0,350lt sleekdes 12un Pbr', line:'L06'}
+];
+const lines = [...new Set(skuOptions.map(s => s.line))].sort();
+
+function skuLabel(item){ return `${item.code} – ${item.desc}`; }
+
+function decorateSelect(sel){
+  if(sel.classList.contains('dest-select')){
+    sel.classList.remove('dest-critical','dest-green','dest-blue');
+    const emphasis = sel.dataset.emphasis || 'normal';
+    if(emphasis === 'critical') sel.classList.add('dest-critical');
+    else if(emphasis === 'green') sel.classList.add('dest-green');
+    else sel.classList.add(sel.value === 'FÁBRICA' ? 'dest-green' : 'dest-blue');
+  }
+  if(sel.classList.contains('tipo-select')){
+    sel.classList.remove('tipo-green','tipo-orange');
+    if(/ÂMBAR|AMBAR/i.test(sel.value)) sel.classList.add('tipo-orange');
+    else if(/HEINEKEN/i.test(sel.value)) sel.classList.add('tipo-green');
+  }
+}
+
+function buildSkuRow(row, preferredLine, preferredCode){
+  row.innerHTML = '<td></td><td></td>';
+  const tdLine = row.children[0];
+  const tdSku = row.children[1];
+
+  const lineSel = document.createElement('select');
+  lineSel.className = 'clickable-select line-select';
+  lineSel.innerHTML = lines.map(line => `<option value="${line}">${line}</option>`).join('');
+  lineSel.value = lines.includes(preferredLine) ? preferredLine : row.dataset.line;
+
+  const skuSel = document.createElement('select');
+  skuSel.className = 'clickable-select sku-select';
+
+  function populateSku(keepCode){
+    const available = skuOptions.filter(item => item.line === lineSel.value);
+    skuSel.innerHTML = available.map(item => `<option value="${item.code}">${skuLabel(item)}</option>`).join('');
+    if(keepCode && available.some(item => item.code === keepCode)) skuSel.value = keepCode;
+    else skuSel.value = available[0]?.code || '';
   }
 
-  function renderHistory(){
-    const search = String(el('historySearch')?.value || '').toLowerCase().trim();
-    const flowFilter = el('historyFlowFilter')?.value || 'todos';
-    const sort = el('historySort')?.value || 'recentes';
-    let rows = [...state.history];
-    if(search){
-      rows = rows.filter(r => [r.dt,r.sku,r.motorista,r.transportadora,r.placaCavalo,r.placaCarreta,r.origem,r.destino,r.observacao,labelType(r.type),labelFlowStatus(r.flowStatus)].join(' ').toLowerCase().includes(search));
-    }
-    if(flowFilter !== 'todos') rows = rows.filter(r => r.flowStatus === flowFilter);
-    rows = sortHistory(rows, sort);
-    const wrap = el('historyTableWrap');
-    if(!wrap) return;
-    if(!rows.length){
-      wrap.innerHTML = '<div class="empty">Nenhum registro ainda.</div>';
-      return;
-    }
-    wrap.innerHTML = `
-      <table>
-        <thead>
-          <tr><th>Tipo</th><th>Status</th><th>DT</th><th>SKU</th><th>Motorista</th><th>Transportadora</th><th>Placas</th><th>Origem / Destino</th><th>Obs.</th><th>Data</th><th>Ações</th></tr>
-        </thead>
-        <tbody>
-          ${rows.map(r=>`
-            <tr>
-              <td><span class="badge status-${r.type==='registrado' ? 'usada' : 'reservada'}">${labelType(r.type)}</span></td>
-              <td><span class="badge status-${escapeHtml(r.flowStatus)}">${labelFlowStatus(r.flowStatus)}</span></td>
-              <td><strong>${escapeHtml(r.dt)}</strong></td>
-              <td>${escapeHtml(r.sku || '-')}</td>
-              <td>${escapeHtml(r.motorista || '-')}</td>
-              <td>${escapeHtml(r.transportadora || '-')}</td>
-              <td>${escapeHtml([r.placaCavalo || '-', r.placaCarreta || '-'].join(' / '))}</td>
-              <td>${escapeHtml([r.origem || '-', r.destino || '-'].join(' → '))}</td>
-              <td>${escapeHtml(r.observacao || '-')}</td>
-              <td>${fmtDate(r.createdAt)}</td>
-              <td>
-                <div class="row-actions">
-                  <button class="a1" onclick="window.openEditRegistroModal('${escapeHtml(r.id)}')">Editar</button>
-                  ${r.flowStatus === 'aberto' ? `
-                    <button class="a4" onclick="window.setHistoryFlowStatus('${escapeHtml(r.id)}','concluido')">Concluído</button>
-                    <button class="a3" onclick="window.setHistoryFlowStatus('${escapeHtml(r.id)}','cancelado')">Cancelado</button>` : ''}
-                </div>
-              </td>
-            </tr>`).join('')}
-        </tbody>
-      </table>`;
-  }
-
-  function renderPainel(){
-    const units = sortDhUnits(state.dhUnits, 'recentes');
-    (el('panelUnitsWrap') || {}).innerHTML = units.length ? `
-      <table>
-        <thead>
-          <tr>
-            <th>Carreta</th>
-            <th>DT</th>
-            <th>SKU</th>
-            <th>Tipo</th>
-            <th>Status</th>
-            <th>Local</th>
-            <th>Transportadora</th>
-            <th>Cavalo</th>
-            <th>Motorista</th>
-            <th>Origem</th>
-            <th>Destino</th>
-            <th>Observação</th>
-            <th>Tempo</th>
-          </tr>
-        </thead>
-        <tbody>${units.map(r=>`
-          <tr>
-            <td><strong>${escapeHtml(r.id)}</strong></td>
-            <td>${escapeHtml(r.dt || '-')}</td>
-            <td>${escapeHtml(r.sku || '-')}</td>
-            <td>${escapeHtml(r.type || '-')}</td>
-            <td><span class="badge status-${escapeHtml(r.status)}">${escapeHtml(labelDhStatus(r.status))}</span></td>
-            <td>${escapeHtml(r.location || '-')}</td>
-            <td>${escapeHtml(r.transportadora || '-')}</td>
-            <td>${escapeHtml(r.currentHorse || '-')}</td>
-            <td>${escapeHtml(r.lastDriver || '-')}</td>
-            <td>${escapeHtml(swapFactoryHeilo(r.destination || '') || '-')}</td>
-            <td>${escapeHtml(r.destination || '-')}</td>
-            <td>${escapeHtml(r.notes || '-')}</td>
-            <td>${fmtDuration(currentMinutes(r.lastMoveAt || r.updatedAt))}</td>
-          </tr>`).join('')}</tbody>
-      </table>` : '<div class="empty">Nenhuma carreta em processo.</div>';
-  }
-
-
-  function syncDhFromDtHistory(){
-    let changed = false;
-    const records = [...state.history].sort((a,b)=> (new Date(a.createdAt || 0) - new Date(a.createdAt || 0)));
-
-    for(const rec of records){
-      const carreta = normalizeUnitId(rec.placaCarreta || '');
-      if(!carreta) continue;
-
-      const existingIndex = state.dhUnits.findIndex(u => u.id === carreta);
-      const existing = existingIndex >= 0 ? state.dhUnits[existingIndex] : null;
-
-      const preserveRouteData = existing && existing.preserveRouteData === true;
-      const keepClearedStatuses = ['cancelada','fora_operacao'];
-      const shouldKeepCleared = existing && keepClearedStatuses.includes(existing.status);
-
-      const keepUntouchedStatuses = ['engatada'];
-      const shouldKeepUntouched = existing && keepUntouchedStatuses.includes(existing.status);
-
-      const preserveFinalizedCarregamento = existing && existing.status === 'finalizada' && existing.preserveFinalizedData === 'carregamento';
-      const preserveFinalizedDescarga = existing && ((existing.status === 'finalizada' || existing.status === 'descarregado') && existing.preserveFinalizedData === 'descarga');
-      const shouldClearFinalized = existing && existing.status === 'finalizada' && !existing.preserveFinalizedData;
-
-      const nextUnit = {
-        id: carreta,
-        dt: (shouldKeepCleared || shouldClearFinalized || preserveRouteData || preserveFinalizedDescarga) ? '' : ((shouldKeepUntouched || preserveFinalizedCarregamento) ? (existing?.dt || '') : normalizeDt(rec.dt || existing?.dt || '')),
-        sku: (shouldKeepCleared || shouldClearFinalized || preserveRouteData || preserveFinalizedDescarga) ? '' : ((shouldKeepUntouched || preserveFinalizedCarregamento) ? (existing?.sku || '') : (rec.sku || existing?.sku || '')),
-        type: existing?.type || 'Sider',
-        transportadora: (shouldKeepCleared || shouldClearFinalized || preserveRouteData || preserveFinalizedDescarga) ? '' : (rec.transportadora || existing?.transportadora || ''),
-        location: existing?.location || rec.origem || 'Pátio',
-        status: existing?.status && existing.status !== 'disponivel' ? existing.status : 'patio_carregada',
-        currentHorse: preserveFinalizedDescarga ? normalizePlate(existing?.currentHorse || '') : (preserveRouteData ? (existing?.status === 'patio_vazia' ? '' : normalizePlate(existing?.currentHorse || '')) : ((shouldKeepCleared || shouldClearFinalized) ? (existing?.currentHorse || '') : normalizePlate(existing?.currentHorse || rec.placaCavalo || ''))),
-        lastDriver: (shouldKeepCleared || shouldClearFinalized || preserveRouteData || preserveFinalizedDescarga) ? '' : (rec.motorista || existing?.lastDriver || ''),
-        destination: (shouldKeepCleared || shouldClearFinalized) ? '' : ((shouldKeepUntouched || preserveFinalizedCarregamento || preserveRouteData || preserveFinalizedDescarga) ? (existing?.destination || '') : (rec.destino || existing?.destination || '')),
-        notes: (shouldKeepCleared || shouldClearFinalized || preserveRouteData || preserveFinalizedDescarga) ? '' : (existing?.notes || rec.observacao || ''),
-        createdAt: existing?.createdAt || rec.createdAt || nowIso(),
-        updatedAt: existing?.updatedAt || rec.updatedAt || rec.createdAt || nowIso(),
-        lastMoveAt: existing?.lastMoveAt || rec.updatedAt || rec.createdAt || nowIso(),
-        fromRegistro: true,
-        preserveFinalizedData: existing?.preserveFinalizedData || false,
-        preserveRouteData: existing?.preserveRouteData === true
-      };
-
-      if(existingIndex === -1){
-        state.dhUnits.push(nextUnit);
-        changed = true;
-      } else {
-        const merged = {
-          ...existing,
-          dt: (shouldKeepCleared || shouldClearFinalized || preserveRouteData || preserveFinalizedDescarga) ? '' : ((shouldKeepUntouched || preserveFinalizedCarregamento) ? (existing.dt || '') : (existing.dt || nextUnit.dt || '')),
-          sku: (shouldKeepCleared || shouldClearFinalized || preserveRouteData || preserveFinalizedDescarga) ? '' : ((shouldKeepUntouched || preserveFinalizedCarregamento) ? (existing.sku || '') : (existing.sku || nextUnit.sku || '')),
-          transportadora: (shouldKeepCleared || shouldClearFinalized || preserveRouteData || preserveFinalizedDescarga) ? '' : (existing.transportadora || nextUnit.transportadora || ''),
-          currentHorse: preserveFinalizedDescarga ? normalizePlate(existing.currentHorse || '') : (preserveRouteData ? (existing.status === 'patio_vazia' ? '' : normalizePlate(existing.currentHorse || '')) : ((shouldKeepCleared || shouldClearFinalized) ? (existing.currentHorse || '') : (existing.currentHorse || nextUnit.currentHorse || ''))),
-          lastDriver: (shouldKeepCleared || shouldClearFinalized || preserveRouteData || preserveFinalizedDescarga) ? '' : (existing.lastDriver || nextUnit.lastDriver || ''),
-          destination: (shouldKeepCleared || shouldClearFinalized) ? '' : ((shouldKeepUntouched || preserveFinalizedCarregamento || preserveRouteData || preserveFinalizedDescarga) ? (existing.destination || '') : (existing.destination || nextUnit.destination || '')),
-          notes: (shouldKeepCleared || shouldClearFinalized || preserveRouteData || preserveFinalizedDescarga) ? '' : (existing.notes || nextUnit.notes || ''),
-          fromRegistro: true,
-          preserveFinalizedData: existing.preserveFinalizedData || false,
-          preserveRouteData: existing.preserveRouteData === true
-        };
-        if(JSON.stringify(existing) !== JSON.stringify(merged)){
-          state.dhUnits[existingIndex] = merged;
-          changed = true;
-        }
-      }
-    }
-
-    if(changed) saveDhLocal(true);
-  }
-
-  function renderAll(){
-    syncDhFromDtHistory();
-    renderStats();
-    if(typeof renderDtTable === 'function') renderDtTable();
-    if(typeof renderHistory === 'function') renderHistory();
-    if(typeof fillDhUnitSelect === 'function') fillDhUnitSelect();
-    if(typeof renderDhOperationTable === 'function') renderDhOperationTable();
-    if(typeof renderPainel === 'function') renderPainel();
-    if(typeof fillDocaDtOptions === 'function') fillDocaDtOptions();
-    if(typeof manualDtOptions === 'function') manualDtOptions();
-  }
-
-  async function clearByStatus(status){
-    const batch = writeBatch(db); let count = 0;
-    for(const item of state.dts.filter(d => d.status === status)){ batch.delete(doc(db, 'dts', item.dt)); count++; }
-    if(!count) return 0;
-    await batch.commit();
-    return count;
-  }
-  async function clearAllData(){
-    const all = [];
-    state.dts.forEach(item => all.push({ c:'dts', id:item.dt }));
-    state.history.forEach(item => all.push({ c:'registros', id:item.id }));
-    for(let i=0;i<all.length;i+=350){
-      const batch = writeBatch(db);
-      all.slice(i,i+350).forEach(item => batch.delete(doc(db, item.c, item.id)));
-      await batch.commit();
-    }
-    state.dhUnits = [];
-    state.dhMoves = [];
-    localStorage.removeItem('dh_units_local');
-    localStorage.removeItem('dh_moves_local');
-    renderAll();
-  }
-
-  function exportDtsCsv(){
-    const lines = [['DT','SKU','Status','Criada','Atualizada'], ...state.dts.map(r=>[r.dt,r.sku || '',labelDtStatus(r.status),fmtDate(r.createdAt),fmtDate(r.updatedAt)])];
-    downloadFile('dts.csv', lines.map(l=>l.map(csvEscape).join(';')).join('\n'), 'text/csv;charset=utf-8');
-  }
-  function exportHistoryCsv(){
-    const lines = [['Tipo','Status','DT','SKU','Motorista','Transportadora','Placa Cavalo','Placa Carreta','Origem','Destino','Observação','Criado em'],
-      ...state.history.map(r=>[labelType(r.type),labelFlowStatus(r.flowStatus),r.dt,r.sku || '',r.motorista,r.transportadora,r.placaCavalo,r.placaCarreta,r.origem,r.destino,r.observacao,fmtDate(r.createdAt)])];
-    downloadFile('historico_dts.csv', lines.map(l=>l.map(csvEscape).join(';')).join('\n'), 'text/csv;charset=utf-8');
-  }
-  function exportDhCsv(){
-    const lines = [['Carreta','DT','Tipo','Status','Local','Transportadora','Cavalo','Motorista','Atualizada'],
-      ...state.dhUnits.map(r=>[r.id,r.dt || '',r.type || '',labelDhStatus(r.status),r.location || '',r.transportadora || '',r.currentHorse || '',r.lastDriver || '',fmtDate(r.updatedAt)])];
-    downloadFile('drop_hook.csv', lines.map(l=>l.map(csvEscape).join(';')).join('\n'), 'text/csv;charset=utf-8');
-  }
-  function backupJson(){
-    downloadFile('backup_controle_dts_drophook.json', JSON.stringify(state, null, 2), 'application/json;charset=utf-8');
-  }
-
-
-  function loadDhLocal(){
-    try{
-      const rawUnits = localStorage.getItem('dh_units_local');
-      const rawMoves = localStorage.getItem('dh_moves_local');
-      state.dhUnits = rawUnits ? JSON.parse(rawUnits) : [];
-      state.dhMoves = rawMoves ? JSON.parse(rawMoves) : [];
-      if(!Array.isArray(state.dhUnits)) state.dhUnits = [];
-      if(!Array.isArray(state.dhMoves)) state.dhMoves = [];
-    }catch(e){
-      console.error(e);
-      state.dhUnits = [];
-      state.dhMoves = [];
-    }
-    isDhUnitsLoaded = true;
-    isDhMovesLoaded = true;
-  }
-
-  function saveDhLocal(skipRender=false){
-    localStorage.setItem('dh_units_local', JSON.stringify(state.dhUnits));
-    localStorage.setItem('dh_moves_local', JSON.stringify(state.dhMoves));
-    if(!skipRender) renderAll();
-  }
-
-  function attachRealtime(){
-    [unsubDts, unsubHistory].forEach(fn => { if(fn) fn(); });
-    isDtsLoaded = isHistoryLoaded = false;
-    loadDhLocal();
-    setSyncBadge('warn', 'Sincronizando');
-
-    unsubDts = onSnapshot(collection(db, 'dts'), (snapshot) => {
-      state.dts = snapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return { dt: data.dt || docSnap.id, sku: data.sku || '', status: data.status || 'disponivel', createdAt: data.createdAt || '', updatedAt: data.updatedAt || data.createdAt || '' };
-      });
-      isDtsLoaded = true;
-      if(isDtsLoaded && isHistoryLoaded) setSyncBadge('ok', 'Online');
-      renderAll();
-    }, (error) => { console.error(error); setSyncBadge('err', 'Erro'); toast('Erro ao ler DTs do Firebase.'); });
-
-    unsubHistory = onSnapshot(collection(db, 'registros'), (snapshot) => {
-      state.history = snapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return { id: data.id || docSnap.id, dt: data.dt || '', sku: data.sku || '', type: data.type || 'registrado', flowStatus: data.flowStatus || 'aberto', motorista: data.motorista || '', transportadora: data.transportadora || '', placaCavalo: data.placaCavalo || '', placaCarreta: data.placaCarreta || '', origem: data.origem || '', destino: data.destino || '', observacao: data.observacao || '', createdAt: data.createdAt || '', updatedAt: data.updatedAt || data.createdAt || '' };
-      });
-      isHistoryLoaded = true;
-      if(isDtsLoaded && isHistoryLoaded) setSyncBadge('ok', 'Online');
-      renderAll();
-    }, (error) => { console.error(error); setSyncBadge('err', 'Erro'); toast('Erro ao ler histórico do Firebase.'); });
-  }
-
-  async function initFirebase(){
-    try{
-      app = initializeApp(firebaseConfig);
-      auth = getAuth(app);
-      db = getFirestore(app);
-      setSyncBadge('warn', 'Entrando');
-      onAuthStateChanged(auth, (user) => { if(user) attachRealtime(); });
-      await signInAnonymously(auth);
-    }catch(error){
-      console.error(error);
-      setSyncBadge('err', 'Erro');
-      toast('Não foi possível conectar no Firebase. Ative o login anônimo e o Firestore.');
-    }
-  }
-
-
-
-
-
-  function openRetornoOrigemModal(unitId, targetStatus='patio_carregada'){
-    const modal = el('retornoOrigemModal');
-    const unitInput = el('retornoUnitId');
-    const origemSelect = el('retornoOrigemSelect');
-    const targetInput = el('retornoTargetStatus');
-    if(unitInput) unitInput.value = unitId || '';
-    if(origemSelect) origemSelect.value = '';
-    if(targetInput) targetInput.value = targetStatus || 'patio_carregada';
-    if(modal) modal.classList.add('show');
-  }
-
-  function closeRetornoOrigemModal(){
-    const modal = el('retornoOrigemModal');
-    if(modal) modal.classList.remove('show');
-  }
-
-  function saveRetornoOrigem(){
-    const unitId = el('retornoUnitId')?.value || '';
-    const origem = String(el('retornoOrigemSelect')?.value || '').trim();
-    const targetStatus = String(el('retornoTargetStatus')?.value || 'patio_carregada').trim();
-    if(!unitId) return toast('Carreta não encontrada.');
-    if(!origem) return toast('Selecione a origem da carreta.');
-    const idx = state.dhUnits.findIndex(u => u.id === unitId);
-    if(idx === -1) return toast('Carreta não encontrada.');
-
-    const isVazia = targetStatus === 'patio_vazia';
-
-    state.dhUnits[idx] = {
-      ...state.dhUnits[idx],
-      status: isVazia ? 'patio_vazia' : 'patio_carregada',
-      location: origem,
-      destination: swapFactoryHeilo(origem),
-      dt: isVazia ? '' : (state.dhUnits[idx].dt || ''),
-      sku: isVazia ? '' : (state.dhUnits[idx].sku || ''),
-      transportadora: isVazia ? '' : (state.dhUnits[idx].transportadora || ''),
-      lastDriver: isVazia ? '' : (state.dhUnits[idx].lastDriver || ''),
-      notes: isVazia ? '' : (state.dhUnits[idx].notes || ''),
-      currentHorse: isVazia ? '' : (state.dhUnits[idx].currentHorse || ''),
-      preserveFinalizedData: false,
-      preserveRouteData: isVazia,
-      updatedAt: nowIso(),
-      lastMoveAt: nowIso(),
-    };
-    saveDhLocal();
-    closeRetornoOrigemModal();
-    toast('Origem da carreta atualizada.');
-  }
-
-  function openEditRegistroModal(id){
-    const rec = state.history.find(r => r.id === id);
-    if(!rec) return toast('Registro não encontrado.');
-    const setv = (field, value='') => { const node = el(field); if(node) node.value = value || ''; };
-    setv('editRegistroId', rec.id);
-    setv('editRegistroDt', rec.dt);
-    setv('editRegistroSku', rec.sku);
-    setv('editRegistroMotorista', rec.motorista);
-    setv('editRegistroTransportadora', rec.transportadora);
-    setv('editRegistroPlacaCavalo', rec.placaCavalo);
-    setv('editRegistroPlacaCarreta', rec.placaCarreta);
-    setv('editRegistroOrigem', rec.origem);
-    setv('editRegistroDestino', rec.destino);
-    setv('editRegistroObs', rec.observacao);
-    const modal = el('editRegistroModal');
-    if(modal) modal.classList.add('show');
-  }
-
-  function closeEditRegistroModal(){
-    const modal = el('editRegistroModal');
-    if(modal) modal.classList.remove('show');
-  }
-
-  async function saveEditRegistro(){
-    const id = el('editRegistroId')?.value || '';
-    if(!id) return toast('Registro não encontrado.');
-    const payload = {
-      dt: normalizeDt(el('editRegistroDt')?.value || ''),
-      sku: String(el('editRegistroSku')?.value || '').trim(),
-      motorista: String(el('editRegistroMotorista')?.value || '').trim(),
-      transportadora: String(el('editRegistroTransportadora')?.value || '').trim(),
-      placaCavalo: normalizePlate(el('editRegistroPlacaCavalo')?.value || ''),
-      placaCarreta: normalizePlate(el('editRegistroPlacaCarreta')?.value || ''),
-      origem: String(el('editRegistroOrigem')?.value || '').trim(),
-      destino: String(el('editRegistroDestino')?.value || '').trim(),
-      observacao: String(el('editRegistroObs')?.value || '').trim(),
-      updatedAt: nowIso(),
-    };
-    try{
-      await updateDoc(doc(db, 'registros', id), payload);
-      closeEditRegistroModal();
-      toast('Registro atualizado com sucesso.');
-    }catch(error){
-      console.error(error);
-      toast('Erro ao atualizar registro.');
-    }
-  }
-
-  async function saveManualCadastroDt(){
-    const dt = normalizeDt(el('manualCadastroDt')?.value || '');
-    const sku = String(el('manualCadastroSku')?.value || '').trim();
-    if(!dt) return toast('Digite uma DT válida.');
-    if(state.dts.some(d => String(d.dt || '') === dt)){
-      closeManualDtCadastroModal();
-      toast('Essa DT já está cadastrada.');
-      return;
-    }
-    const res = await addDt(dt, sku);
-    if(!res?.ok) return toast(res?.msg || 'Erro ao cadastrar DT.');
-    closeManualDtCadastroModal();
-    renderAll();
-    toast('DT cadastrada com sucesso. Agora selecione novamente o carregamento.');
-  }
-
-  function openDocaDtModal(unitId, actionType){
-    const modal = el('docaDtModal');
-    const unitInput = el('docaUnitId');
-    const actionInput = el('docaActionType');
-    const dtInput = el('docaNewDt');
-    const dtSelect = el('docaDtSelect');
-    const unit = state.dhUnits.find(u => u.id === unitId);
-    if(unitInput) unitInput.value = unitId || '';
-    if(actionInput) actionInput.value = actionType || 'carregamento';
-    fillDocaDtOptions(unitId);
-    if(dtInput) dtInput.value = '';
-    if(dtSelect) dtSelect.value = '';
-    if(modal) modal.classList.add('show');
-  }
-
-  function closeDocaDtModal(){
-    const modal = el('docaDtModal');
-    if(modal) modal.classList.remove('show');
-  }
-
-  async function saveDocaDt(){
-    const unitId = el('docaUnitId')?.value || '';
-    const actionType = (el('docaActionType')?.value || '').trim();
-    const dtSelectNode = el('docaDtSelect');
-
-    const dtFromSelect = normalizeDt(dtSelectNode?.value || '');
-    if(!unitId) return toast('Selecione uma carreta.');
-
-    const idx = state.dhUnits.findIndex(u => u.id === unitId);
-    if(idx === -1) return toast('Carreta não encontrada.');
-
-    const unit = state.dhUnits[idx];
-    const forceNewDt = actionType === 'carregamento_force';
-    let resolvedDt = forceNewDt ? '' : normalizeDt(unit.dt || '');
-
-    if(!resolvedDt){
-      resolvedDt = dtFromSelect;
-      if(!resolvedDt) return toast('Selecione uma DT para seguir com o carregamento.');
-    }
-
-    const linkedDt = resolvedDt ? state.dts.find(d => String(d.dt || '') === resolvedDt) : null;
-    const resolvedSku = linkedDt?.sku || '';
-
-    const linkedRecordByDt = getLatestHistoryByDt(resolvedDt);
-    const matchingRecords = state.history
-      .filter(r => normalizeUnitId(r.placaCarreta || '') === unit.id)
-      .sort((a,b)=> (new Date(b.createdAt || 0) - new Date(a.createdAt || 0)));
-    const latestRecord = matchingRecords[0];
-
-    const unitOrigin = String(getUnitOrigin(unit) || '').trim();
-    const nextOrigem = String(linkedRecordByDt?.origem || unitOrigin || '').trim();
-    const nextDestino = String(linkedRecordByDt?.destino || (nextOrigem ? swapFactoryHeilo(nextOrigem) : '')).trim();
-
-    const nextMotorista = String(linkedRecordByDt?.motorista || unit.lastDriver || '').trim();
-    const nextTransportadora = String(linkedRecordByDt?.transportadora || unit.transportadora || 'RITMO').trim();
-    const nextCavalo = normalizePlate(linkedRecordByDt?.placaCavalo || unit.currentHorse || '');
-    const nextCarreta = normalizeUnitId(linkedRecordByDt?.placaCarreta || unit.id || '');
-
-    state.dhMoves.unshift({
-      id: uid('dhm'),
-      unitId: unit.id,
-      dt: resolvedDt,
-      type: 'carregamento',
-      flowStatus: 'aberto',
-      motorista: nextMotorista,
-      transportadora: nextTransportadora,
-      placaCavalo: nextCavalo,
-      fromLocation: unit.location || '-',
-      toLocation: 'Doca 1',
-      doca: 'Doca 1',
-      destination: nextDestino,
-      observacao: unit.notes || '',
-      createdAt: nowIso(),
-      updatedAt: nowIso()
-    });
-
-    if(latestRecord){
-      try{
-        await updateDoc(doc(db, 'registros', latestRecord.id), {
-          dt: resolvedDt,
-          sku: resolvedSku || latestRecord.sku || '',
-          motorista: nextMotorista,
-          transportadora: nextTransportadora,
-          placaCavalo: nextCavalo,
-          placaCarreta: nextCarreta,
-          origem: nextOrigem,
-          destino: nextDestino,
-          updatedAt: nowIso()
-        });
-      }catch(e){ console.error(e); }
-    }
-
-    state.dhUnits[idx] = {
-      ...unit,
-      dt: resolvedDt,
-      sku: resolvedSku || '',
-      status: 'carregamento',
-      location: 'Doca 1',
-      transportadora: nextTransportadora,
-      lastDriver: nextMotorista,
-      currentHorse: nextCavalo,
-      destination: nextDestino,
-      preserveRouteData: false,
-      preserveFinalizedData: false,
-      updatedAt: nowIso(),
-      lastMoveAt: nowIso()
-    };
-
-    if(resolvedDt){
-      await markDtAsUsed(resolvedDt, resolvedSku);
-      await createOrUpdateHistoryForDh(state.dhUnits[idx], resolvedDt, resolvedSku, 'aberto');
-    }
-
-    saveDhLocal();
-    closeDocaDtModal();
-    renderAll();
-    toast('Carregamento atualizado com sucesso.');
-  }
-
-  function openDesvioModal(unitId){
-    const modal = el('desvioModal');
-    const unitInput = el('desvioUnitId');
-    const textInput = el('desvioText');
-    const unit = state.dhUnits.find(u => u.id === unitId);
-    if(unitInput) unitInput.value = unitId || '';
-    if(textInput) textInput.value = unit?.notes || '';
-    if(modal) modal.classList.add('show');
-  }
-
-  function closeDesvioModal(){
-    const modal = el('desvioModal');
-    if(modal) modal.classList.remove('show');
-  }
-
-  async function saveDesvio(){
-    const unitId = el('desvioUnitId')?.value || '';
-    const desvio = (el('desvioText')?.value || '').trim();
-    if(!unitId) return toast('Selecione uma carreta para registrar o desvio.');
-    const idx = state.dhUnits.findIndex(u => u.id === unitId);
-    if(idx === -1) return toast('Carreta não encontrada.');
-    const unit = state.dhUnits[idx];
-    state.dhMoves.unshift({
-      id: uid('dhm'),
-      unitId: unit.id,
-      dt: unit.dt || '',
-      type: 'aguardando',
-      flowStatus: 'aberto',
-      motorista: unit.lastDriver || '',
-      transportadora: unit.transportadora || 'RITMO',
-      placaCavalo: unit.currentHorse || '',
-      fromLocation: unit.location || '-',
-      toLocation: 'Desvio',
-      doca: '',
-      destination: unit.destination || '',
-      observacao: desvio,
-      createdAt: nowIso(),
-      updatedAt: nowIso()
-    });
-    state.dhUnits[idx] = {
-      ...unit,
-      status: 'aguardando',
-      location: unit.location || 'Pátio',
-      notes: desvio,
-      updatedAt: nowIso(),
-      lastMoveAt: nowIso()
-    };
-    saveDhLocal();
-    closeDesvioModal();
-    toast('Desvio salvo com sucesso.');
-  }
-
-  async function handleCarregamento(unitId){
-    const unit = state.dhUnits.find(u => u.id === unitId);
-    if(!unit) return toast('Carreta não encontrada.');
-    if(normalizeDt(unit.dt || '')){
-      await updateDhUnitQuick(unitId, 'carregamento', 'Doca 1');
-      return;
-    }
-    fillDocaDtOptions(unitId);
-    const select = el('docaDtSelect');
-    const hasOptions = !!select && select.options.length > 1;
-    if(!hasOptions){
-      const origin = getUnitOrigin(unit) || 'origem atual';
-      toast(`Não há DT cadastrada compatível com ${origin}.`);
-    }
-    openDocaDtModal(unitId, 'carregamento');
-  }
-
-  async function handleDescarga(unitId){
-    const unit = state.dhUnits.find(u => u.id === unitId);
-    if(!unit) return toast('Carreta não encontrada.');
-    await updateDhUnitQuick(unitId, 'descarga', 'Doca 1');
-  }
-
-  async function handleDhAction(unitId, action){
-    if(!action) return;
-    try{
-      if(action === 'carregamento') return await handleCarregamento(unitId);
-      if(action === 'descarga') return await handleDescarga(unitId);
-      if(action === 'desvio') return openDesvioModal(unitId);
-      const map = {
-        patio_carregada: ['patio_carregada', 'Pátio'],
-        finalizada: ['finalizada', 'Finalizado'],
-        patio_vazia: ['patio_vazia', 'Pátio'],
-        engatada: ['engatada', 'Em rota'],
-        cancelada: ['cancelada', 'Externo'],
-        fora_operacao: ['fora_operacao', 'Fora de operação']
-      };
-      const conf = map[action];
-      if(conf) return await window.quickDhStatus(unitId, conf[0], conf[1]);
-    }catch(error){
-      console.error(error);
-      toast(error.message || 'Erro ao executar ação.');
-    }
-  }
-
-
-  const tempHorseEdits = {};
-
-  window.setTempHorse = (unitId, value) => {
-    tempHorseEdits[unitId] = normalizePlate(value || '');
-  };
-
-  window.saveHorse = (unitId) => {
-    const idx = state.dhUnits.findIndex(u => u.id === unitId);
-    if(idx === -1) return toast('Carreta não encontrada.');
-    state.dhUnits[idx] = {
-      ...state.dhUnits[idx],
-      currentHorse: normalizePlate(tempHorseEdits[unitId] || state.dhUnits[idx].currentHorse || ''),
-      updatedAt: nowIso()
-    };
-    saveDhLocal();
-    toast('Cavalo atualizado.');
-  };
-
-  window.setStatus = async (dt,status) => { try{ await updateDtStatus(dt,status); }catch(error){ console.error(error); toast(error.message || 'Erro ao atualizar status.'); } };
-  window.deleteDhUnit = async (unitId) => {
-    if(!confirm(`Excluir a carreta ${unitId}?`)) return;
-    try{
-      await removeDhUnit(unitId);
-      renderAll();
-      toast(`Carreta ${unitId} excluída com sucesso.`);
-    }catch(error){
-      console.error(error);
-      toast(error.message || 'Erro ao excluir carreta.');
-    }
-  };
-
-  window.deleteDt = async (dt) => { if(!confirm(`Excluir DT ${dt}?`)) return; try{ await removeDt(dt); }catch(error){ console.error(error); toast('Erro ao excluir DT.'); } };
-  window.setHistoryFlowStatus = async (id,status) => { try{ await setHistoryStatus(id,status); }catch(error){ console.error(error); toast(error.message || 'Erro ao atualizar status do registro.'); } };
-  window.pickDhUnit = (id) => {
-    switchTab('drophook');
-    el('dhUnitSelect').value = id;
-    syncDhSelectedUnit();
-    const unit = state.dhUnits.find(u => u.id === id);
-    if(unit){ el('dhOperationDt').value = unit.dt || ''; el('dhTransportadora').value = unit.transportadora || ''; el('dhPlacaCarretaRead').value = unit.id || ''; }
-  };
-  window.quickDhStatus = async (id, status, location) => {
-    try{
-      const unit = state.dhUnits.find(u => u.id === id);
-      if(unit && unit.status === 'fora_operacao' && status !== 'fora_operacao'){
-        openRetornoOrigemModal(id, status);
-        return;
-      }
-      await updateDhUnitQuick(id, status, location);
-    }catch(error){
-      console.error(error);
-      toast(error.message || 'Erro ao atualizar status da carreta.');
-    }
-  };
-  window.openDesvioModal = openDesvioModal;
-  window.openDocaDtModal = openDocaDtModal;
-  window.openEditRegistroModal = openEditRegistroModal;
-  window.handleCarregamento = handleCarregamento;
-  window.handleDescarga = handleDescarga;
-  window.handleDhAction = handleDhAction;
-
-  const safeBind = (id, evt, fn) => { const node = el(id); if(node) node.addEventListener(evt, fn); };
-
-
-  qsa('.tab').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
-
-  el('addSingleDtBtn').addEventListener('click', async ()=>{ try{ const res = await addDt(el('singleDt').value, el('singleSku').value); if(!res.ok) return toast(res.msg); el('singleDt').value=''; el('singleSku').value=''; toast(res.msg); }catch(error){ console.error(error); toast(error.message || 'Erro ao adicionar DT.'); } });
-  el('clearSingleDtBtn').addEventListener('click', ()=>{ el('singleDt').value=''; el('singleSku').value=''; });
-  el('addBulkDtBtn').addEventListener('click', async ()=>{ try{ const {added, ignored} = await addBulk(el('bulkDts').value, el('bulkSku').value); el('bulkDts').value=''; el('bulkSku').value=''; toast(`${added} DT(s) adicionada(s). ${ignored} ignorada(s).`); }catch(error){ console.error(error); toast('Erro ao adicionar lote.'); } });
-  el('clearBulkBtn').addEventListener('click', ()=>{ el('bulkDts').value=''; el('bulkSku').value=''; });
-  el('deleteDtCadastroBtn').addEventListener('click', async ()=>{
-    const dt = normalizeDt(el('deleteDtInput').value || '');
-    if(!dt) return toast('Digite uma DT válida.');
-    if(!confirm(`Excluir DT ${dt}?`)) return;
-    try{
-      await removeDt(dt);
-      el('deleteDtInput').value='';
-      toast(`DT ${dt} excluída com sucesso.`);
-    }catch(error){
-      console.error(error);
-      toast('Erro ao excluir DT.');
-    }
+  populateSku(preferredCode);
+  tdLine.appendChild(lineSel);
+  tdSku.appendChild(skuSel);
+
+  lineSel.addEventListener('change', () => {
+    registerChange();
+    populateSku();
+    persistState(false);
   });
-  el('clearDeleteDtBtn').addEventListener('click', ()=>{ el('deleteDtInput').value=''; });
-
-  el('addDhUnitBtn').addEventListener('click', async ()=>{ try{
-    const res = await addDhUnit(el('dhSingleCarreta').value, el('dhSingleDt').value, el('dhSingleTipo').value, el('dhSingleTransportadora').value);
-    if(!res.ok) return toast(res.msg);
-    ['dhSingleCarreta','dhSingleDt','dhSingleTransportadora'].forEach(id=>el(id).value='');
-    toast(res.msg);
-  }catch(error){ console.error(error); toast(error.message || 'Erro ao cadastrar carreta.'); }});
-  el('clearDhUnitBtn').addEventListener('click', ()=> { ['dhSingleCarreta','dhSingleDt'].forEach(id=>el(id).value=''); el('dhSingleTransportadora').value='RITMO'; });
-
-  el('deleteCarretaCadastroBtn').addEventListener('click', async ()=>{
-    const carreta = normalizePlate(el('deleteCarretaInput').value || '');
-    if(!carreta) return toast('Digite a placa da carreta.');
-    if(!confirm(`Excluir a carreta ${carreta}?`)) return;
-    try{
-      await removeDhUnit(carreta);
-      el('deleteCarretaInput').value = '';
-      toast(`Carreta ${carreta} excluída com sucesso.`);
-    }catch(error){
-      console.error(error);
-      toast(error.message || 'Erro ao excluir carreta.');
-    }
+  skuSel.addEventListener('change', () => {
+    registerChange();
+    persistState(false);
   });
-  el('clearDeleteCarretaBtn').addEventListener('click', ()=>{ el('deleteCarretaInput').value=''; });
+}
 
-  safeOn('dtMode','change', manualDtOptions);
-  safeOn('manualSelectMode','change', ()=>{ if(el('manualSelectMode').value !== 'sku') el('manualSkuSelect').value = ''; manualDtOptions(); });
-  safeOn('manualSkuSelect','change', manualDtOptions);
-  safeOn('registerBaldeioBtn','click', async ()=> { try{ await registerDt('registrado'); }catch(error){ console.error(error); toast(error.message || 'Erro ao registrar.'); } });
-  safeOn('reserveNextBtn','click', async ()=> { try{ await registerDt('reservado'); }catch(error){ console.error(error); toast(error.message || 'Erro ao reservar.'); } });
-
-  qsa('#dhStatusButtons .status-btn').forEach(btn => btn.addEventListener('click', () => {
-    dhMode = btn.dataset.status;
-    qsa('#dhStatusButtons .status-btn').forEach(b => b.classList.toggle('active', b.dataset.status === dhMode));
-    if(dhMode === 'finalizado') el('dhToLocation').value = 'Em rota';
-    else if(dhMode === 'cancelada') el('dhToLocation').value = 'Externo';
-    else if(dhMode === 'em_descarga' || dhMode === 'em_carregamento') el('dhToLocation').value = 'Doca 1';
-    else el('dhToLocation').value = 'Pátio';
-    updateDhPreview();
-  }));
-
-
-  ['searchDt','statusFilter','sortMode','historySearch','historyFlowFilter','historySort','opSearch','opStatusFilter','opLocationFilter','opSort'].forEach(id => {
-    const node = el(id); if(node){ node.addEventListener('input', renderAll); node.addEventListener('change', renderAll); }
+function getState(){
+  const state = {};
+  document.querySelectorAll('select[data-key]').forEach(sel => state[sel.dataset.key] = sel.value);
+  document.querySelectorAll('#skuBody tr').forEach(row => {
+    const id = row.dataset.row;
+    state[`sku-row-${id}-line`] = row.querySelector('.line-select')?.value || row.dataset.line;
+    state[`sku-row-${id}-code`] = row.querySelector('.sku-select')?.value || row.dataset.code;
   });
+  return state;
+}
 
-  safeOn('exportDtCsvBtn','click', exportDtsCsv);
-  safeOn('exportDhCsvBtn','click', exportDhCsv);
-  safeOn('exportHistoryCsvBtn','click', exportHistoryCsv);
-  safeOn('backupJsonBtn','click', backupJson);
-  safeOn('saveDesvioBtn','click', saveDesvio);
-  safeOn('closeDesvioBtn','click', closeDesvioModal);
-  safeOn('saveDocaDtBtn','click', saveDocaDt);
-  safeOn('closeDocaDtBtn','click', closeDocaDtModal);
-  safeOn('saveEditRegistroBtn','click', saveEditRegistro);
-  safeOn('closeEditRegistroBtn','click', closeEditRegistroModal);
-  safeOn('saveRetornoOrigemBtn','click', saveRetornoOrigem);
-  safeOn('closeRetornoOrigemBtn','click', closeRetornoOrigemModal);
-  const desvioModalNode = el('desvioModal');
-  if(desvioModalNode){
-    desvioModalNode.addEventListener('click', (e) => {
-      if(e.target.id === 'desvioModal') closeDesvioModal();
-    });
-  }
-  const docaModalNode = el('docaDtModal');
-  if(docaModalNode){
-    docaModalNode.addEventListener('click', (e) => {
-      if(e.target.id === 'docaDtModal') closeDocaDtModal();
-    });
-  }
-  const editRegistroModalNode = el('editRegistroModal');
-  if(editRegistroModalNode){
-    editRegistroModalNode.addEventListener('click', (e) => {
-      if(e.target.id === 'editRegistroModal') closeEditRegistroModal();
-    });
-  }
-  const retornoOrigemModalNode = el('retornoOrigemModal');
-  if(retornoOrigemModalNode){
-    retornoOrigemModalNode.addEventListener('click', (e) => {
-      if(e.target.id === 'retornoOrigemModal') closeRetornoOrigemModal();
-    });
-  }
-
-  safeOn('clearUsedBtn','click', async ()=>{ if(!confirm('Excluir todas as DTs registradas?')) return; try{ const count = await clearByStatus('usada'); if(count === 0) toast('Nenhuma DT registrada para excluir.'); }catch(error){ console.error(error); toast('Erro ao excluir DTs registradas.'); } });
-  safeOn('clearCancelledBtn','click', async ()=>{ if(!confirm('Excluir todas as DTs canceladas?')) return; try{ const count = await clearByStatus('cancelada'); if(count === 0) toast('Nenhuma DT cancelada para excluir.'); }catch(error){ console.error(error); toast('Erro ao excluir DTs canceladas.'); } });
-  safeOn('clearAllBtn','click', async ()=>{ if(!confirm('Limpar DTs, histórico, Drop & Hook e painel?')) return; try{ await clearAllData(); }catch(error){ console.error(error); toast('Erro ao limpar dados.'); } });
-
-
-
-  ['placaCavalo','placaCarreta','dhPlacaCavalo'].forEach(id => { const node = el(id); if(node) node.addEventListener('input', e => e.target.value = normalizePlate(e.target.value)); });
-  ['dhSingleCarreta'].forEach(id => { const node = el(id); if(node) node.addEventListener('input', e => e.target.value = normalizeUnitId(e.target.value)); });
-
-  ['singleDt','bulkDts','dhSingleDt'].forEach(id => {
-    const node = el(id); if(!node) return;
-    node.addEventListener('input', (e)=> { if(id !== 'bulkDts') e.target.value = normalizeDt(e.target.value); });
+function applyState(state){
+  document.querySelectorAll('select[data-key]').forEach(sel => {
+    if(state && state[sel.dataset.key] !== undefined) sel.value = state[sel.dataset.key];
+    decorateSelect(sel);
   });
+  document.querySelectorAll('#skuBody tr').forEach(row => {
+    const id = row.dataset.row;
+    const line = state?.[`sku-row-${id}-line`] || row.dataset.line;
+    const code = state?.[`sku-row-${id}-code`] || row.dataset.code;
+    buildSkuRow(row, line, code);
+  });
+  currentState = getState();
+}
 
-  fillDhLocationOptions();
-  renderAll();
-  initFirebase();
+function registerChange(){
+  if(currentState) undoStack.push(JSON.parse(JSON.stringify(currentState)));
+  if(undoStack.length > 25) undoStack.shift();
+}
+
+function persistState(showToast){
+  currentState = getState();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(currentState));
+  document.querySelectorAll('select').forEach(decorateSelect);
+  if(showToast) toast('Salvo com sucesso');
+}
+
+function manualSave(){
+  persistState(true);
+}
+
+function undoChange(){
+  const previous = undoStack.pop();
+  if(!previous){
+    toast('Nada para desfazer');
+    return;
+  }
+  applyState(previous);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(previous));
+  toast('Última alteração desfeita');
+}
+
+function toast(text){
+  const el = document.getElementById('toast');
+  el.textContent = text;
+  el.style.opacity = '1';
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => el.style.opacity = '0', 1300);
+}
+
+document.addEventListener('change', event => {
+  if(event.target.matches('select[data-key]')){
+    registerChange();
+    decorateSelect(event.target);
+    persistState(false);
+  }
+});
+
+function syncDirectionSelectors(){
+  const square = document.getElementById('squareDestino');
+  const alert = document.getElementById('alertDestino');
+  const amber = document.querySelector('[data-key="dest-vasilhame-2"]');
+  const value = square?.value || amber?.value || 'FÁBRICA';
+  [square, alert, amber].forEach(sel => {
+    if(sel){ sel.value = value; decorateSelect(sel); }
+  });
+  currentState = getState();
+}
+
+document.addEventListener('change', event => {
+  if(event.target.matches('#squareDestino, #alertDestino, [data-key="dest-vasilhame-2"]')){
+    const value = event.target.value;
+    ['squareDestino','alertDestino'].forEach(id => {
+      const sel = document.getElementById(id);
+      if(sel && sel !== event.target){ sel.value = value; decorateSelect(sel); }
+    });
+    const amber = document.querySelector('[data-key="dest-vasilhame-2"]');
+    if(amber && amber !== event.target){ amber.value = value; decorateSelect(amber); }
+    currentState = getState();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentState));
+  }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  applyState(saved ? JSON.parse(saved) : null);
+  syncDirectionSelectors();
+});
 </script>
 </body>
 </html>
