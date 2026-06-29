@@ -486,16 +486,28 @@
     box-shadow:inset 0 0 0 1px rgba(206,255,175,.34);
   }
   .left-dir-dest.clickable-select:hover,.left-dir-dest.clickable-select:focus{
-    background-image:linear-gradient(180deg,#ffe05b,#ffc400), url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2220%22 height=%2220%22 viewBox=%220 0 20 20%22%3E%3Cpath fill=%22%230f1807%22 d=%22M5 7l5 6 5-6z%22/%3E%3C/svg%3E");
-    background-repeat:no-repeat,no-repeat;
-    background-position:center, right 14px center;
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.18), 0 6px 14px rgba(0,0,0,.25);
   }
   .clickable-select option{background:#052b14;color:#fff;font-weight:900}
   .dest-select{text-align:center;text-align-last:center}
-  .dest-critical{color:var(--red)!important}
-  .dest-green{color:#25e76b!important}  /* FÁBRICA = verde */
-.dest-blue{color:#ffd400!important}   /* HEILO = amarelo */
+  .dest-critical{color:#ff3030!important}
+  .dest-green{color:#25e76b!important}   /* FÁBRICA = verde */
+  .dest-blue{color:#ffd400!important}    /* HEILO = amarelo (compatibilidade) */
+  .dest-yellow{color:#ffd400!important}  /* HEILO = amarelo */
+  .left-dir-dest.clickable-select.dest-green{
+    color:#25e76b!important;
+    border-color:rgba(37,231,107,.75);
+    background-image:linear-gradient(180deg,#073819,#03190b), url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2220%22 height=%2220%22 viewBox=%220 0 20 20%22%3E%3Cpath fill=%22%2325e76b%22 d=%22M5 7l5 6 5-6z%22/%3E%3C/svg%3E");
+    background-repeat:no-repeat,no-repeat;
+    background-position:center, right 14px center;
+  }
+  .left-dir-dest.clickable-select.dest-yellow{
+    color:#ffd400!important;
+    border-color:rgba(255,212,0,.80);
+    background-image:linear-gradient(180deg,#302600,#181200), url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2220%22 height=%2220%22 viewBox=%220 0 20 20%22%3E%3Cpath fill=%22%23ffd400%22 d=%22M5 7l5 6 5-6z%22/%3E%3C/svg%3E");
+    background-repeat:no-repeat,no-repeat;
+    background-position:center, right 14px center;
+  }
   .tipo-green{color:#67e83d!important}
   .tipo-orange{color:var(--orange)!important}
   .line-select{text-align:center;text-align-last:center;color:#dfffbd}
@@ -805,13 +817,31 @@ const lines = [...new Set(skuOptions.map(s => s.line))].sort();
 function skuLabel(item){ return `${item.code} – ${item.desc}`; }
 
 function decorateSelect(sel){
-  if(sel.classList.contains('dest-select')){
-    sel.classList.remove('dest-critical','dest-green','dest-blue');
-    const emphasis = sel.dataset.emphasis || 'normal';
-    if(emphasis === 'critical') sel.classList.add('dest-critical');
-    else if(emphasis === 'green') sel.classList.add('dest-green');
-    else sel.classList.add(sel.value === 'FÁBRICA' ? 'dest-green' : 'dest-blue');
+  // Regra geral das opções de destino:
+  // FÁBRICA sempre verde e HEILO sempre amarelo, independente do data-emphasis.
+  if(sel.classList.contains('dest-select') || sel.classList.contains('left-dir-dest')){
+    sel.classList.remove('dest-critical','dest-green','dest-blue','dest-yellow');
+
+    if(sel.value === 'FÁBRICA'){
+      sel.classList.add('dest-green');
+    } else if(sel.value === 'HEILO'){
+      sel.classList.add('dest-yellow');
+    }
+
+    Array.from(sel.options).forEach(option => {
+      option.style.backgroundColor = '#052b14';
+      option.style.fontWeight = '900';
+
+      if(option.value === 'FÁBRICA'){
+        option.style.color = '#25e76b';
+      } else if(option.value === 'HEILO'){
+        option.style.color = '#ffd400';
+      } else {
+        option.style.color = '#ffffff';
+      }
+    });
   }
+
   if(sel.classList.contains('tipo-select')){
     sel.classList.remove('tipo-green','tipo-orange');
     if(/ÂMBAR|AMBAR/i.test(sel.value)) sel.classList.add('tipo-orange');
