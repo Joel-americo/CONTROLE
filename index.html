@@ -512,6 +512,8 @@
   .tipo-orange{color:var(--orange)!important}
   .line-select{text-align:center;text-align-last:center;color:#dfffbd}
   .sku-select{font-size:15px;color:#fff}
+  .sku-status-parada{color:#ff4b4b!important}
+  .sku-status-overhaul{color:#ffd400!important}
   .bottom{
     position:absolute;
     left:14px;
@@ -812,9 +814,15 @@ const skuOptions = [
   {code:'905573', desc:'Cerv Heineken Ult 0,330gfa Des 4x6un Pbr', line:'L01'},
   {code:'905572', desc:'Cerv Heineken Ult 0,350lt sleekdes 12un Pbr', line:'L06'}
 ];
+
+const skuStatusOptions = [
+  {code:'LINHA_PARADA', label:'Linha Parada', status:'parada'},
+  {code:'LINHA_OVERHAUL', label:'Linha em Overhaul', status:'overhaul'}
+];
+
 const lines = [...new Set(skuOptions.map(s => s.line))].sort();
 
-function skuLabel(item){ return `${item.code} – ${item.desc}`; }
+function skuLabel(item){ return item.label || `${item.code} – ${item.desc}`; }
 
 function decorateSelect(sel){
   // Regra geral das opções de destino:
@@ -847,6 +855,19 @@ function decorateSelect(sel){
     if(/ÂMBAR|AMBAR/i.test(sel.value)) sel.classList.add('tipo-orange');
     else if(/HEINEKEN/i.test(sel.value)) sel.classList.add('tipo-green');
   }
+
+  if(sel.classList.contains('sku-select')){
+    sel.classList.remove('sku-status-parada','sku-status-overhaul');
+    if(sel.value === 'LINHA_PARADA') sel.classList.add('sku-status-parada');
+    if(sel.value === 'LINHA_OVERHAUL') sel.classList.add('sku-status-overhaul');
+
+    Array.from(sel.options).forEach(option => {
+      if(option.value === 'LINHA_PARADA') option.style.color = '#ff4b4b';
+      if(option.value === 'LINHA_OVERHAUL') option.style.color = '#ffd400';
+      option.style.backgroundColor = '#052b14';
+      option.style.fontWeight = '900';
+    });
+  }
 }
 
 function buildSkuRow(row, preferredLine, preferredCode){
@@ -863,10 +884,14 @@ function buildSkuRow(row, preferredLine, preferredCode){
   skuSel.className = 'clickable-select sku-select';
 
   function populateSku(keepCode){
-    const available = skuOptions.filter(item => item.line === lineSel.value);
+    const available = [
+      ...skuOptions.filter(item => item.line === lineSel.value),
+      ...skuStatusOptions
+    ];
     skuSel.innerHTML = available.map(item => `<option value="${item.code}">${skuLabel(item)}</option>`).join('');
     if(keepCode && available.some(item => item.code === keepCode)) skuSel.value = keepCode;
     else skuSel.value = available[0]?.code || '';
+    decorateSelect(skuSel);
   }
 
   populateSku(preferredCode);
@@ -880,6 +905,7 @@ function buildSkuRow(row, preferredLine, preferredCode){
   });
   skuSel.addEventListener('change', () => {
     registerChange();
+    decorateSelect(skuSel);
     persistState(false);
   });
 }
@@ -906,6 +932,7 @@ function applyState(state){
     const code = state?.[`sku-row-${id}-code`] || row.dataset.code;
     buildSkuRow(row, line, code);
   });
+  document.querySelectorAll('select').forEach(decorateSelect);
   currentState = getState();
 }
 
