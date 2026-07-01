@@ -269,7 +269,7 @@
     left:14px;
     right:14px;
     top:98px;
-    bottom:148px;
+    bottom:102px;
     display:grid;
     grid-template-columns:38.5% 1fr;
     gap:20px;
@@ -405,7 +405,7 @@
   .cards{
     display:flex;
     flex-direction:column;
-    gap:8px;
+    gap:7px;
     min-width:0;
   }
   .card{
@@ -461,6 +461,51 @@
     background:linear-gradient(90deg,rgba(52,137,30,.58),rgba(31,106,17,.45));
   }
   .sku-table td:nth-child(2){text-align:left}
+  .obs-card{
+    min-height:88px;
+  }
+  .obs-card .icon{
+    background:linear-gradient(180deg, rgba(50,157,35,.78), rgba(0,68,28,.42));
+  }
+  .obs-content{
+    min-width:0;
+    padding:8px 10px 9px;
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    background:rgba(0,0,0,.14);
+  }
+  .obs-title{
+    display:block;
+    color:#fff;
+    font-size:18px;
+    line-height:1;
+    font-weight:1000;
+    letter-spacing:.3px;
+    text-transform:uppercase;
+    text-shadow:0 2px 3px rgba(0,0,0,.38);
+  }
+  .obs-input{
+    width:100%;
+    height:42px;
+    min-height:42px;
+    resize:none;
+    border-radius:10px;
+    border:1px solid rgba(155,255,98,.56);
+    outline:0;
+    padding:8px 10px;
+    background:rgba(0,12,5,.78);
+    color:#fff;
+    font-size:15px;
+    font-weight:1000;
+    line-height:1.15;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .obs-input::placeholder{color:rgba(255,255,255,.58)}
+  .obs-input:hover,.obs-input:focus{
+    border-color:rgba(255,225,66,.72);
+    box-shadow:inset 0 0 0 1px rgba(255,225,66,.16), 0 0 12px rgba(255,225,66,.10);
+  }
   .clickable-select{
     width:100%;
     min-height:24px;
@@ -640,6 +685,9 @@
     .compact th,.compact td{font-size:13px}
     .sku-table td{font-size:13px}
     .sku-select{font-size:12px}
+    .obs-card{min-height:78px}
+    .obs-title{font-size:13px}
+    .obs-input{height:36px;min-height:36px;font-size:12px;padding:7px 8px}
     .bottom{grid-template-columns:170px 1fr}
     .safety-title{font-size:18px}
     .safety-title span{font-size:22px}
@@ -762,7 +810,7 @@
         </div>
         <table class="sku-table">
           <colgroup><col style="width:17%"><col></colgroup>
-          <thead><tr><th>Linha</th><th>SKUs em produção </now></th></tr></thead>
+          <thead><tr><th>Linha</th><th>SKUs em produção</th></tr></thead>
           <tbody id="skuBody">
             <tr data-row="1" data-line="L01" data-code="905291"><td></td><td></td></tr>
             <tr data-row="2" data-line="L03" data-code="903496"><td></td><td></td></tr>
@@ -771,6 +819,16 @@
             <tr data-row="5" data-line="L07" data-code="903384"><td></td><td></td></tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="card obs-card">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64"><path d="M16 8h27l5 5v43H16z"/><path d="M43 8v10h10"/><path d="M23 26h24M23 35h24M23 44h15"/><path d="M42 47l9-9 5 5-9 9-7 2z"/></svg>
+        </div>
+        <div class="obs-content">
+          <label class="obs-title" for="painelObservacao">Observação</label>
+          <textarea id="painelObservacao" class="obs-input" data-key="obs-painel-direcionamento" placeholder="Digite uma observação..." rows="2"></textarea>
+        </div>
       </div>
     </section>
   </section>
@@ -912,7 +970,7 @@ function buildSkuRow(row, preferredLine, preferredCode){
 
 function getState(){
   const state = {};
-  document.querySelectorAll('select[data-key]').forEach(sel => state[sel.dataset.key] = sel.value);
+  document.querySelectorAll('select[data-key], textarea[data-key], input[data-key]').forEach(el => state[el.dataset.key] = el.value);
   document.querySelectorAll('#skuBody tr').forEach(row => {
     const id = row.dataset.row;
     state[`sku-row-${id}-line`] = row.querySelector('.line-select')?.value || row.dataset.line;
@@ -925,6 +983,9 @@ function applyState(state){
   document.querySelectorAll('select[data-key]').forEach(sel => {
     if(state && state[sel.dataset.key] !== undefined) sel.value = state[sel.dataset.key];
     decorateSelect(sel);
+  });
+  document.querySelectorAll('textarea[data-key], input[data-key]').forEach(el => {
+    if(state && state[el.dataset.key] !== undefined) el.value = state[el.dataset.key];
   });
   document.querySelectorAll('#skuBody tr').forEach(row => {
     const id = row.dataset.row;
@@ -976,6 +1037,22 @@ document.addEventListener('change', event => {
     registerChange();
     decorateSelect(event.target);
     persistState(false);
+  }
+});
+
+document.addEventListener('input', event => {
+  if(event.target.matches('textarea[data-key], input[data-key]')){
+    if(event.target.dataset.changeOpen !== '1'){
+      registerChange();
+      event.target.dataset.changeOpen = '1';
+    }
+    persistState(false);
+  }
+});
+
+document.addEventListener('focusout', event => {
+  if(event.target.matches('textarea[data-key], input[data-key]')){
+    delete event.target.dataset.changeOpen;
   }
 });
 
