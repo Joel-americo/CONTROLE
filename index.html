@@ -462,23 +462,24 @@
   }
   .sku-table td:nth-child(2){text-align:left}
   .obs-card{
-    min-height:88px;
+    min-height:112px;
+    overflow:visible;
   }
   .obs-card .icon{
     background:linear-gradient(180deg, rgba(50,157,35,.78), rgba(0,68,28,.42));
   }
   .obs-content{
     min-width:0;
-    padding:8px 10px 9px;
+    padding:10px 12px 12px;
     display:flex;
     flex-direction:column;
-    gap:5px;
+    gap:8px;
     background:rgba(0,0,0,.14);
   }
   .obs-title{
     display:block;
     color:#fff;
-    font-size:18px;
+    font-size:22px;
     line-height:1;
     font-weight:1000;
     letter-spacing:.3px;
@@ -487,18 +488,19 @@
   }
   .obs-input{
     width:100%;
-    height:42px;
-    min-height:42px;
+    height:auto;
+    min-height:66px;
     resize:none;
-    border-radius:10px;
+    overflow:hidden;
+    border-radius:12px;
     border:1px solid rgba(155,255,98,.56);
     outline:0;
-    padding:8px 10px;
+    padding:11px 12px;
     background:rgba(0,12,5,.78);
     color:#fff;
-    font-size:15px;
+    font-size:23px;
     font-weight:1000;
-    line-height:1.15;
+    line-height:1.22;
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);
   }
   .obs-input::placeholder{color:rgba(255,255,255,.58)}
@@ -685,9 +687,9 @@
     .compact th,.compact td{font-size:13px}
     .sku-table td{font-size:13px}
     .sku-select{font-size:12px}
-    .obs-card{min-height:78px}
-    .obs-title{font-size:13px}
-    .obs-input{height:36px;min-height:36px;font-size:12px;padding:7px 8px}
+    .obs-card{min-height:96px}
+    .obs-title{font-size:18px}
+    .obs-input{min-height:56px;font-size:18px;padding:9px 10px}
     .bottom{grid-template-columns:170px 1fr}
     .safety-title{font-size:18px}
     .safety-title span{font-size:22px}
@@ -968,6 +970,17 @@ function buildSkuRow(row, preferredLine, preferredCode){
   });
 }
 
+function autoResizeTextArea(el){
+  if(!el || !el.matches('textarea')) return;
+  el.style.height = 'auto';
+  const minHeight = parseFloat(getComputedStyle(el).minHeight) || 0;
+  el.style.height = `${Math.max(el.scrollHeight, minHeight)}px`;
+}
+
+function autoResizeAllTextareas(){
+  document.querySelectorAll('textarea[data-key]').forEach(autoResizeTextArea);
+}
+
 function getState(){
   const state = {};
   document.querySelectorAll('select[data-key], textarea[data-key], input[data-key]').forEach(el => state[el.dataset.key] = el.value);
@@ -986,6 +999,7 @@ function applyState(state){
   });
   document.querySelectorAll('textarea[data-key], input[data-key]').forEach(el => {
     if(state && state[el.dataset.key] !== undefined) el.value = state[el.dataset.key];
+    if(el.matches('textarea')) autoResizeTextArea(el);
   });
   document.querySelectorAll('#skuBody tr').forEach(row => {
     const id = row.dataset.row;
@@ -1042,6 +1056,7 @@ document.addEventListener('change', event => {
 
 document.addEventListener('input', event => {
   if(event.target.matches('textarea[data-key], input[data-key]')){
+    if(event.target.matches('textarea')) autoResizeTextArea(event.target);
     if(event.target.dataset.changeOpen !== '1'){
       registerChange();
       event.target.dataset.changeOpen = '1';
@@ -1085,6 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem(STORAGE_KEY);
   applyState(saved ? JSON.parse(saved) : null);
   syncDirectionSelectors();
+  requestAnimationFrame(autoResizeAllTextareas);
 });
 </script>
 </body>
